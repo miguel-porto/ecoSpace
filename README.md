@@ -9,5 +9,7 @@ ecoSpace-server is the Java server that does all the computations necessary for 
 * assembles species networks based on the distance matrices and the user queries;
 * [exposes services](http://flora-on.pt/ecospace/?w=api) for querying the network and displaying kernel density surfaces in self-contained SVG.
 
-The code is here provided as an Eclipse project.
+The code is here provided as a Maven project.
+Currently, it is not usable as it stands, cause it is still under development.
+
 
