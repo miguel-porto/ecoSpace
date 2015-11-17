@@ -1,0 +1,75 @@
+<project>
+	<modelVersion>4.0.0</modelVersion>
+
+	<parent>
+		<groupId>pt.floraon.ecospace</groupId>
+		<artifactId>ecoSpace-server</artifactId>
+		<version>1.0-SNAPSHOT</version>
+	</parent>
+
+	<groupId>pt.floraon.ecospace</groupId>
+	<artifactId>get-density-png</artifactId>
+	<version>1.0-SNAPSHOT</version>
+
+	<name>get-density-png</name>
+	<url>http://maven.apache.org</url>
+
+	<packaging>exe</packaging>
+
+	<dependencies>
+		<dependency>
+			<groupId>pt.floraon.ecospace</groupId>
+			<artifactId>ecoSpace-server-java</artifactId>
+			<version>1.0-SNAPSHOT</version>
+			<type>jar</type>
+			<scope>compile</scope>
+		</dependency>  
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>native-maven-plugin</artifactId>
+				<version>1.0-alpha-8</version>
+				<extensions>true</extensions>
+				<configuration>
+					<compilerProvider>generic</compilerProvider>
+					<compilerStartOptions>
+					<compilerStartOption></compilerStartOption>
+					</compilerStartOptions>
+					<javahOS>linux</javahOS>
+
+					<sources>
+						<source>
+							<directory>./src/main/native</directory>
+							<fileNames>
+								<fileName>get-density-png.c</fileName>
+							</fileNames>
+						</source>
+						<source>
+							<directory>../native/src/main/native</directory>
+							<fileNames>
+								<fileName>build-kernel.c</fileName>
+							</fileNames>
+						</source>
+						<source>
+							<directory>../native/src/main/native</directory>
+						</source>
+					</sources>
+
+					<linkerStartOptions>
+						<linkerStartOption>-O3</linkerStartOption>
+						<linkerStartOption>-B ${basedir}/src/main/native/lpng1614</linkerStartOption>
+					</linkerStartOptions>
+					<linkerEndOptions>
+						<linkerEndOption>-lpng</linkerEndOption>
+						<linkerEndOption>-lm</linkerEndOption>
+						<linkerEndOption>-lz</linkerEndOption>
+					</linkerEndOptions>
+				</configuration>
+			</plugin>
+		</plugins>
+	</build>
+</project>
+

@@ -1,0 +1,14 @@
+Package: ecoSpace
+Version: 1.0
+Date: 2013-01-01
+Title: ecoSpace
+Authors@R: c(person("Miguel", "Porto", role = c("aut", "cre"), email = "mpbertolo@gmail.com"))
+Author: Miguel Porto
+Maintainer: Miguel Porto <mpbertolo@gmail.com>
+Depends: R (>= 1.8.0), RCurl, igraph, jsonlite
+Suggests: 
+Description: A short (one paragraph) description of what
+  the package does and why it may be useful.
+License: GPL (>= 2)
+URL: http://www.r-project.org, http://www.another.url
+BugReports: http://pkgname.bugtracker.url

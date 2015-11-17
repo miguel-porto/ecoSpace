@@ -1,0 +1,106 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>pt.floraon.ecospace</groupId>
+		<artifactId>ecoSpace-server</artifactId>
+		<version>1.0-SNAPSHOT</version>
+	</parent>
+
+	<artifactId>libecoSpace-JNI</artifactId>
+	<version>1.0-SNAPSHOT</version>
+	<name>ecoSpace native functions</name>
+	<url>http://maven.apache.org</url>
+
+	<packaging>so</packaging>
+
+	<dependencies>
+		<dependency>
+			<groupId>pt.floraon.ecospace</groupId>
+			<artifactId>ecoSpace-server-java</artifactId>
+			<version>1.0-SNAPSHOT</version>
+			<type>jar</type>
+			<scope>compile</scope>
+		</dependency>  
+	</dependencies>
+
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>native-maven-plugin</artifactId>
+				<version>1.0-alpha-8</version>
+				<extensions>true</extensions>
+				<configuration>
+					<compilerProvider>generic</compilerProvider>
+					<compilerStartOptions>
+						<compilerStartOption>-fPIC -O -Wall -fopenmp</compilerStartOption>
+					</compilerStartOptions>
+
+					<javahOS>linux</javahOS>
+
+					<sources>
+						<source>
+							<directory>./src/main/native</directory>
+							<fileNames>
+								<fileName>extract-vars.c</fileName>
+								<fileName>distancequery.c</fileName>
+								<fileName>distances.c</fileName>
+								<fileName>readtiffs.c</fileName>
+								<fileName>kernel-dens.c</fileName>
+								<fileName>build-kernel.c</fileName>
+							</fileNames>
+						</source>
+
+                        <source>
+                            <directory>
+                                ${basedir}/src/main/native/
+                            </directory>
+                        </source>
+					</sources>
+				
+		            <linkerStartOptions>
+		                <linkerStartOption>-shared -fopenmp</linkerStartOption>
+		                <linkerStartOption>-O3</linkerStartOption>
+		                <linkerStartOption>-I${basedir}/src/main/native/</linkerStartOption>
+		                <linkerStartOption>-B ${basedir}/src/main/native/tiff-4.0.3/libtiff/.libs</linkerStartOption>
+		            </linkerStartOptions>
+		            <linkerEndOptions>
+		                <linkerEndOption>-lc</linkerEndOption>
+		                <linkerEndOption>-ltiff</linkerEndOption>
+		            </linkerEndOptions>
+	<!--
+
+
+					<linkerStartOptions>
+						<linkerStartOption>-fPIC -fopenmp -O3 -shared</linkerStartOption>
+						<linkerStartOption>-B ${basedir}/src/main/native/tiff-4.0.3/libtiff/.libs</linkerStartOption>
+					</linkerStartOptions>
+					<linkerEndOptions>
+						<linkerEndOption>-lc -lm -ltiff</linkerEndOption>
+					</linkerEndOptions>-->
+				</configuration>
+
+				<executions>
+					<execution>
+						<id>javah</id>
+						<phase>generate-sources</phase>
+						<configuration>
+							<javahOS>linux</javahOS>
+							<javahProvider>default</javahProvider>
+							<javahOutputDirectory>${project.build.directory}/custom-javah</javahOutputDirectory>
+							<workingDirectory>${basedir}</workingDirectory>
+							<javahOutputFileName>ecoSpace_nativeFunctions.h</javahOutputFileName>
+							<javahClassNames>
+								<javahClassName>pt.floraon.ecospace.nativeFunctions</javahClassName>
+							</javahClassNames>
+						</configuration>
+						<goals>
+							<goal>javah</goal>
+						</goals>
+					</execution>
+				</executions>
+			</plugin>
+		</plugins>
+	</build>
+</project>

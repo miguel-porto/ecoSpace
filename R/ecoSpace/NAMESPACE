@@ -1,0 +1,6 @@
+export(distance.matrix)
+export(get.variables)
+export(get.datasets)
+export(get.analyses)
+export(start.server)
+export(stop.server)

@@ -1,0 +1,96 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent>
+	  <groupId>pt.floraon.ecospace</groupId>
+	  <artifactId>ecoSpace-server</artifactId>
+	  <version>1.0-SNAPSHOT</version>
+  </parent>
+
+  <groupId>pt.floraon.ecospace</groupId>
+  <artifactId>ecoSpace-server-java</artifactId>
+  <name>ecoSpace-server - Java</name>
+  <version>1.0-SNAPSHOT</version>
+
+  <packaging>jar</packaging>
+  <url>http://maven.apache.org</url>
+  <dependencies>
+  
+<!--        <dependency>
+		  <groupId>pt.floraon.ecospace</groupId>
+			<artifactId>ecoSpace-JNI</artifactId>
+		  <version>1.0-SNAPSHOT</version>
+            <scope>runtime</scope>
+            <type>so</type>
+        </dependency>
+-->        
+          
+    <dependency>
+      <groupId>junit</groupId>
+      <artifactId>junit</artifactId>
+      <version>3.8.1</version>
+      <scope>test</scope>
+    </dependency>
+
+<dependency>
+	<groupId>commons-io</groupId>
+	<artifactId>commons-io</artifactId>
+	<version>2.4</version>
+</dependency>
+<dependency>
+	<groupId>commons-codec</groupId>
+	<artifactId>commons-codec</artifactId>
+	<version>1.6</version>
+</dependency>
+
+<dependency>
+	<groupId>org.apache.httpcomponents</groupId>
+	<artifactId>httpcore</artifactId>
+	<version>4.4.3</version>
+</dependency>
+<dependency>
+	<groupId>org.apache.httpcomponents</groupId>
+	<artifactId>httpclient</artifactId>
+	<version>4.3.6</version>
+</dependency>
+
+<dependency>
+	<groupId>com.googlecode.json-simple</groupId>
+	<artifactId>json-simple</artifactId>
+	<version>1.1.1</version>
+</dependency>
+
+<dependency>
+	<groupId>org.apache.commons</groupId>
+	<artifactId>commons-csv</artifactId>
+	<version>1.1</version>
+</dependency>
+
+	</dependencies>
+  <build>
+    <plugins>
+       <plugin>
+           <groupId>org.apache.maven.plugins</groupId>
+           <artifactId>maven-compiler-plugin</artifactId>
+           <version>2.3.1</version>
+           <configuration>
+               <source>7</source>
+               <target>7</target>
+           </configuration>
+       </plugin>
+	 <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>2.3.2</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <addClasspath>true</addClasspath>
+              <mainClass>pt.floraon.ecospace.EcoSpace</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+    </plugins>
+   </build>
+</project>
