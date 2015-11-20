@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
 import java.io.FileWriter;
+import java.io.FilenameFilter;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.net.URL;
@@ -54,7 +55,7 @@ public final class GlobalOperations {
 		try {
 			DocumentBuilderFactory dbFactory = DocumentBuilderFactory.newInstance();
 			DocumentBuilder dBuilder = dbFactory.newDocumentBuilder();
-			if(!xml.exists()) {
+			if(!xml.exists()) {	// there is no XML file, create new
 				XMLIndex=dBuilder.newDocument();
 				Node root=XMLIndex.createElement("ecospace");
 				Element variable;
@@ -78,6 +79,28 @@ public final class GlobalOperations {
 				variable.setAttribute("scale", "1");
 				variable.setAttribute("title", "Longitude");
 				variables.appendChild(variable);
+				
+				// add all TIFs that are in the folder 
+				File folder = new File("./tiff");
+				if(!folder.canRead()) throw new IOException("Cannot read directory ./tiff");
+				File[] files = folder.listFiles(new FilenameFilter() {
+					@Override
+					public boolean accept(File dir, String name) {
+						return name.toLowerCase().endsWith(".tif");
+					}
+				});
+				
+				String title;
+				for(File f:files) {
+					variable=XMLIndex.createElement("variable");
+					title=f.getName().replaceAll("\\..*$", "");
+					variable.setAttribute("abbrev", title);
+					variable.setAttribute("file", title);
+					variable.setAttribute("scale", "1");
+					variable.setAttribute("title", title);
+					variables.appendChild(variable);
+					
+				}
 				
 				updateXML();
 			} else XMLIndex = dBuilder.parse(xml);

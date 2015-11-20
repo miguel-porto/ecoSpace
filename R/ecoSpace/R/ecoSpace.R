@@ -56,7 +56,7 @@ get.analyses<-function(dataset) {
 new.dataset<-function(data,description=NULL) {
 	if( !("latitude" %in% colnames(data)) || !("longitude" %in% colnames(data)) || !("taxon" %in% colnames(data))) stop("Data frame must have the columns \"latitude\", \"longitude\" and \"taxa\".")
 	
-	spp=strsplit(as.character(data[,"taxa"])," ")
+	spp=strsplit(as.character(data[,"taxon"])," ")
 	len=sapply(spp,length)
 	if(any(len<2)) stop("Records must have valid taxon names and be at least to species level.")
 	
@@ -69,11 +69,11 @@ new.dataset<-function(data,description=NULL) {
 	)
 	
 	filename=tempfile()
-	write.table(dwc,file=filename,sep="\t",quote=FALSE)
+	write.table(dwc,file=filename,sep="\t",quote=FALSE,row.names=FALSE)
 	if(is.null(description)) description="Local file"
 	did=fromJSON(getURL( paste("localhost:7520/adddataset/local?file=",curlEscape(filename),"&desc=",curlEscape(description),sep="") ))
 	
 	return(dwc)
 }
 
-data=data.frame(taxa=c("cistus ladanifer","cistus ladanifer","cistus ladanifer","cistus crispus"),latitude=c(38,37,37,38),longitude=c(-8,-8,-7,-9))
+data=data.frame(taxon=c("cistus ladanifer","cistus ladanifer","cistus ladanifer","cistus crispus"),latitude=c(38,37,37,38),longitude=c(-8,-8,-7,-9))

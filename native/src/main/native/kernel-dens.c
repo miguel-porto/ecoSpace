@@ -99,91 +99,101 @@ JNIEXPORT jint JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeKernelDen
 // allocate N multidimensional arrays (multidimensional grids to compute kernel densities in each cell)
 	densities=malloc(ntaxafiltered*sizeof(DENSITY));
 	outIDs=calloc(ntaxafiltered,sizeof(int));
+
 	for(i=0;i<ntaxafiltered;i++) {
 		densities[i].density=malloc(arraysize);
 		memset(densities[i].density,0,arraysize);
 	}
-	tmpdens=malloc(arraysize*sizeof(float));
-	memset(tmpdens,0,arraysize*sizeof(float));
 
-	printf("Computing kernel densities");
-	
-	#pragma omp parallel for private(i,k,skiprec,tmpdens,anythingtosave,d1from,d1to,d1,d1kern,d2,d2from,d2to,d2p,d2kern,d3,d3from,d3to,d3p,d3kern,)
-	for(j=0;j<ntaxa;j++) {
-		if(freqs[j]<freqthresh) continue;
-		anythingtosave=false;
-		for(i=0;i<nrecs;i++) {	// iterate through all records in search for this taxon
+	printf("Computing kernel densities");fflush(stdout);
+
 // scale the variables to the size of the grid
-			for(k=0,skiprec=false;k<nvarstouse;k++) {
-				if(vararray[i+nrecs*k]==RASTERNODATA) {
-					skiprec=true;
-					continue;
-				} else vararray[i+nrecs*k]=(vararray[i+nrecs*k]*side)/10000;
-			}
-			if(skiprec) continue;		// skip NAs
-// now yeah, create density surface by summing the kernels record by record			
-// since it is not computationally feasible more than 3 dimensions, just make the optimized code for each case...
-			switch(nvarstouse) {
-				case 1:
-					d1from=(vararray[i]-kernelhalfside)<0 ? 0 : (vararray[i]-kernelhalfside);
-					d1to=(vararray[i]+kernelhalfside+1>side ? side : vararray[i]+kernelhalfside+1);
-					
-					for(d1=d1from,d1kern=vararray[i]-kernelhalfside<0 ? kernelhalfside-vararray[i] : 0;d1<d1to;d1++,d1kern++) {
-						tmpdens[d1]+=kernel[d1kern] * (downweight ? ((float)weight[i]/MULTIPLIER) : 1);
+	for(i=0;i<nrecs;i++) {	
+		for(k=0;k<nvarstouse;k++) {
+			if(vararray[i+nrecs*k]!=RASTERNODATA) vararray[i+nrecs*k]=(vararray[i+nrecs*k]*side)/10000;
+		}
+	}
+	
+	#pragma omp parallel private(i,k,skiprec,tmpdens,anythingtosave,d1from,d1to,d1,d1kern,d2,d2from,d2to,d2p,d2kern,d3,d3from,d3to,d3p,d3kern)
+	{
+		tmpdens=malloc(arraysize*sizeof(float));
+		memset(tmpdens,0,arraysize*sizeof(float));
+
+		#pragma omp for
+		for(j=0;j<ntaxa;j++) {		// NOTE: this loop doesn't need the records to be sorted, that's why it takes much longer
+			if(freqs[j]<freqthresh) continue;
+			anythingtosave=false;
+			for(i=0;i<nrecs;i++) {	// iterate through all records in search for this taxon
+				for(k=0,skiprec=false;k<nvarstouse;k++) {	// check if any one of the variables is NA. if it is, skip this record
+					if(vararray[i+nrecs*k]==RASTERNODATA) {
+						skiprec=true;
+						break;
 					}
-					anythingtosave=true;
-				break;
-				
-				case 2:
-					d1from=(vararray[i]-kernelhalfside)<0 ? 0 : (vararray[i]-kernelhalfside);
-					d1to=(vararray[i]+kernelhalfside+1>side ? side : vararray[i]+kernelhalfside+1);
-					d2from=(vararray[i+nrecs]-kernelhalfside)<0 ? 0 : (vararray[i+nrecs]-kernelhalfside);
-					d2to=(vararray[i+nrecs]+kernelhalfside+1>side ? side : vararray[i+nrecs]+kernelhalfside+1);
+				}
+				if(skiprec) continue;		// skip NAs
+	// now yeah, create density surface by summing the kernels record by record			
+	// since it is not computationally feasible more than 3 dimensions, just make the optimized code for each case...
+				switch(nvarstouse) {
+					case 1:
+						d1from=(vararray[i]-kernelhalfside)<0 ? 0 : (vararray[i]-kernelhalfside);
+						d1to=(vararray[i]+kernelhalfside+1>side ? side : vararray[i]+kernelhalfside+1);
 					
-					for(d1=d1from,d1kern=vararray[i]-kernelhalfside<0 ? kernelhalfside-vararray[i] : 0;d1<d1to;d1++,d1kern++) {
-						for(d2=d2from,d2p=d1+d2from*side,d2kern=d1kern+((vararray[i+nrecs]-kernelhalfside)<0 ? (kernelhalfside-vararray[i+nrecs])*kernelside : 0);d2<d2to;d2++,d2p+=side,d2kern+=kernelside) {
-							tmpdens[d2p]+=kernel[d2kern] * (downweight ? ((float)weight[i]/MULTIPLIER) : 1);
+						for(d1=d1from,d1kern=vararray[i]-kernelhalfside<0 ? kernelhalfside-vararray[i] : 0;d1<d1to;d1++,d1kern++) {
+							tmpdens[d1]+=kernel[d1kern] * (downweight ? ((float)weight[i]/MULTIPLIER) : 1);
 						}
-					}
-					anythingtosave=true;
-				break;
+						anythingtosave=true;
+					break;
 				
-				case 3:
-					d1from=(vararray[i]-kernelhalfside)<0 ? 0 : (vararray[i]-kernelhalfside);
-					d1to=(vararray[i]+kernelhalfside+1>side ? side : vararray[i]+kernelhalfside+1);
-					d2from=(vararray[i+nrecs]-kernelhalfside)<0 ? 0 : (vararray[i+nrecs]-kernelhalfside);
-					d2to=(vararray[i+nrecs]+kernelhalfside+1>side ? side : vararray[i+nrecs]+kernelhalfside+1);
-					d3from=(vararray[i+nrecs*2]-kernelhalfside)<0 ? 0 : (vararray[i+nrecs*2]-kernelhalfside);
-					d3to=(vararray[i+nrecs*2]+kernelhalfside+1>side ? side : vararray[i+nrecs*2]+kernelhalfside+1);
-					for(d1=d1from,d1kern=vararray[i]-kernelhalfside<0 ? kernelhalfside-vararray[i] : 0;
-						d1<d1to;
-						d1++,d1kern++) {
-						for(d2=d2from,d2p=d1+d2from*side,d2kern=d1kern+((vararray[i+nrecs]-kernelhalfside)<0 ? (kernelhalfside-vararray[i+nrecs])*kernelside : 0)
-							;d2<d2to
-							;d2++,d2p+=side,d2kern+=kernelside) {
-							for(d3=d3from,d3p=d2p+d3from*sidesq
-									,d3kern=&kernel[d2kern+((vararray[i+nrecs*2]-kernelhalfside)<0 ? (kernelhalfside-vararray[i+nrecs*2])*kernelsidesq : 0)]
-								;d3<d3to
-								;d3++,d3p+=sidesq,d3kern+=kernelsidesq) {
-								tmpdens[d3p]+=*d3kern * (downweight ? ((float)weight[i]/MULTIPLIER) : 1);
-								//kernel[d3kern];
+					case 2:
+						d1from=(vararray[i]-kernelhalfside)<0 ? 0 : (vararray[i]-kernelhalfside);
+						d1to=(vararray[i]+kernelhalfside+1>side ? side : vararray[i]+kernelhalfside+1);
+						d2from=(vararray[i+nrecs]-kernelhalfside)<0 ? 0 : (vararray[i+nrecs]-kernelhalfside);
+						d2to=(vararray[i+nrecs]+kernelhalfside+1>side ? side : vararray[i+nrecs]+kernelhalfside+1);
+					
+						for(d1=d1from,d1kern=vararray[i]-kernelhalfside<0 ? kernelhalfside-vararray[i] : 0;d1<d1to;d1++,d1kern++) {
+							for(d2=d2from,d2p=d1+d2from*side,d2kern=d1kern+((vararray[i+nrecs]-kernelhalfside)<0 ? (kernelhalfside-vararray[i+nrecs])*kernelside : 0);d2<d2to;d2++,d2p+=side,d2kern+=kernelside) {
+								tmpdens[d2p]+=kernel[d2kern] * (downweight ? ((float)weight[i]/MULTIPLIER) : 1);
 							}
 						}
-					}
-					anythingtosave=true;
-				break;
-			}
-		}	// end record loop
-		if(anythingtosave) {
-			saveKernelDensity(tmpdens,freqs[j],&densities[mapIDs[j]]);		// save kernel density of previous taxon
-			outIDs[mapIDs[j]]=j;
-		} else outIDs[mapIDs[j]]=-1;
-		anythingtosave=false;
-		memset(tmpdens,0,arraysize*sizeof(float));
-		printf(".");
-		fflush(stdout);
-	}	// end taxon loop
-	
+						anythingtosave=true;
+					break;
+				
+					case 3:
+						d1from=(vararray[i]-kernelhalfside)<0 ? 0 : (vararray[i]-kernelhalfside);
+						d1to=(vararray[i]+kernelhalfside+1>side ? side : vararray[i]+kernelhalfside+1);
+						d2from=(vararray[i+nrecs]-kernelhalfside)<0 ? 0 : (vararray[i+nrecs]-kernelhalfside);
+						d2to=(vararray[i+nrecs]+kernelhalfside+1>side ? side : vararray[i+nrecs]+kernelhalfside+1);
+						d3from=(vararray[i+nrecs*2]-kernelhalfside)<0 ? 0 : (vararray[i+nrecs*2]-kernelhalfside);
+						d3to=(vararray[i+nrecs*2]+kernelhalfside+1>side ? side : vararray[i+nrecs*2]+kernelhalfside+1);
+						for(d1=d1from,d1kern=vararray[i]-kernelhalfside<0 ? kernelhalfside-vararray[i] : 0;
+							d1<d1to;
+							d1++,d1kern++) {
+							for(d2=d2from,d2p=d1+d2from*side,d2kern=d1kern+((vararray[i+nrecs]-kernelhalfside)<0 ? (kernelhalfside-vararray[i+nrecs])*kernelside : 0)
+								;d2<d2to
+								;d2++,d2p+=side,d2kern+=kernelside) {
+								for(d3=d3from,d3p=d2p+d3from*sidesq
+										,d3kern=&kernel[d2kern+((vararray[i+nrecs*2]-kernelhalfside)<0 ? (kernelhalfside-vararray[i+nrecs*2])*kernelsidesq : 0)]
+									;d3<d3to
+									;d3++,d3p+=sidesq,d3kern+=kernelsidesq) {
+									tmpdens[d3p]+=*d3kern * (downweight ? ((float)weight[i]/MULTIPLIER) : 1);
+									//kernel[d3kern];
+								}
+							}
+						}
+						anythingtosave=true;
+					break;
+				}
+			}	// end record loop
+			if(anythingtosave) {
+				saveKernelDensity(tmpdens,freqs[j],&densities[mapIDs[j]]);		// save kernel density of previous taxon
+				outIDs[mapIDs[j]]=j;
+			} else outIDs[mapIDs[j]]=-1;
+			anythingtosave=false;
+			memset(tmpdens,0,arraysize*sizeof(float));
+			printf(".");
+			fflush(stdout);
+		}	// end taxon loop
+	}
 /*	THIS is the working code. Above still developing.
 	for(i=0;i<nrecs;i++) {	// iterate through all records IMPORTANT: records must be sorted by taxon ID
 		if(freqs[pIDs[i]]>=freqthresh) {
