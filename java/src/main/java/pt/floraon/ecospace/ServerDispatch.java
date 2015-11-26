@@ -78,13 +78,7 @@ public class ServerDispatch implements Runnable{
 			return error(msg);
 		}
 	}
-	@SuppressWarnings("unchecked")
-	public static String success(String msg) {
-		JSONObject jobj=new JSONObject();
-		jobj.put("success", true);
-		if(msg!=null) jobj.put("msg", msg);
-		return(jobj.toJSONString());
-	}
+
 	@SuppressWarnings("unchecked")
 	public static String success(Object msg) {
 		JSONObject jobj=new JSONObject();
@@ -170,9 +164,14 @@ public class ServerDispatch implements Runnable{
     				break;
     			case 3:
     				ds=datasetServer.datasets.get(path[2]);
-    				if(ds!=null)
-    					out.println("{\"success\":true,\"id\":\""+path[2]+"\",\"state\":\""+GlobalOperations.translateDatasetState(ds.GetState())+(ds.getProgress()==null ? "" : " "+ds.getProgress()+" records processed.")+"\",\"ready\":"+(ds.GetState()==DATASETSTATE.IDLE ? true : false)+"}");
-    				else
+    				if(ds!=null) {
+    					jobj=new JSONObject();
+    					jobj.put("id", path[2]);
+    					jobj.put("state", GlobalOperations.translateDatasetState(ds.GetState())+(ds.getProgress()==null ? "" : " "+ds.getProgress()+" records processed."));
+    					jobj.put("ready", (ds.GetState()==DATASETSTATE.IDLE ? true : false));
+    					out.println(success(jobj));
+    					//out.println("{\"success\":true,\"id\":\""+path[2]+"\",\"state\":\""+GlobalOperations.translateDatasetState(ds.GetState())+(ds.getProgress()==null ? "" : " "+ds.getProgress()+" records processed.")+"\",\"ready\":"+(ds.GetState()==DATASETSTATE.IDLE ? true : false)+"}");
+    				} else
     					out.println(error("No such dataset ID."));
     				break;
     			case 4:
@@ -188,12 +187,20 @@ public class ServerDispatch implements Runnable{
 	    							maxf=0;
 	    						}
     						} else maxf=0;
-    						out.println("{\"success\":true,\"id\":\""+path[3]+"\",\"state\":\""+an.getState()+"\",\"ready\":"+an.isReady()
-    								+",\"minfreq\":"+an.getMinFrequency()+",\"sigmapercent\":"+an.getSigmaPercent()+",\"maxfreq\":"+maxf+"}");
+    						jobj=new JSONObject();
+    						jobj.put("id", path[3]);
+    						jobj.put("state", an.getState());
+    						jobj.put("ready", an.isReady());
+    						jobj.put("minfreq", an.getMinFrequency());
+    						jobj.put("sigmapercent", an.getSigmaPercent());
+    						jobj.put("maxfreq", maxf);
+    						out.println(success(jobj));
+    						//out.println("{\"success\":true,\"id\":\""+path[3]+"\",\"state\":\""+an.getState()+"\",\"ready\":"+an.isReady()
+    						//		+",\"minfreq\":"+an.getMinFrequency()+",\"sigmapercent\":"+an.getSigmaPercent()+",\"maxfreq\":"+maxf+"}");
     					} else
-    						out.println("{\"success\":false,\"msg\":\"No such analysis ID\"}");
+    						out.println(error("No such analysis ID"));
     				} else
-    					out.println("{\"success\":false,\"msg\":\"No such dataset ID\"}");
+    					out.println(error("No such dataset ID"));
     				break;
     			}
     			break;
@@ -207,8 +214,14 @@ public class ServerDispatch implements Runnable{
     		case "empty":
     			datasetServer.Close();
     			datasetServer.Empty();
-    			out.println(success("Erased all datasets."));
+				File dir=new File("data/");
+				File[] files=dir.listFiles();
+				for(File f:files) {
+					f.delete();
+				}
+				out.println(success("Erased all datasets."));
     			break;
+    			
     		case "getdatasets":
 /*    			BasicHttpResponse response=new BasicHttpResponse(HttpVersion.HTTP_1_1,HttpStatus.SC_OK,null);
     			response.addHeader(new BasicHeader("Content-type","application/json"));
@@ -239,7 +252,7 @@ public class ServerDispatch implements Runnable{
     			break;
     			
     		case "getanalyses":
-    			if(qs==null || qs.size()==0) out.println("You must supply the dataset ID. Example:\ngetanalyses?did=65d79"); else {
+    			if(qs==null || qs.size()==0) out.println(error("You must supply the dataset ID. Example:\ngetanalyses?did=65d79")); else {
     				dID=nativeFunctions.getQSValue("did",qs);
     				ds=datasetServer.datasets.get(dID);
     				if(ds!=null) {
@@ -252,7 +265,7 @@ public class ServerDispatch implements Runnable{
     					}
     					jobj.put("analyses", analy);
     					out.println(jobj.toJSONString());
-    				} else out.println("{\"success\":false,\"msg\":\"No such dataset ID\"}");
+    				} else out.println(error("No such dataset ID"));
     			}
     			break;
     		case "getvariables":
@@ -355,22 +368,22 @@ public class ServerDispatch implements Runnable{
     			}
     			break;
     		case "open":	// make new analysis (if it doesn't exist already)
-    			if(qs.size()==0) out.println("You must supply the dataset dataset ID and the variables to analyse. Example:\nopen?id=65d79c6083&v=0,1,2&min=100&sig=0.02"); else {
+    			if(qs.size()==0) out.println(error("You must supply the dataset dataset ID and the variables to analyse. Example:\nopen?id=65d79c6083&v=0,1,2&min=100&sig=0.02")); else {
     				dID=getQSValue("did",qs);
     				String v=getQSValue("v",qs);
     				String min=getQSValue("min",qs);
     				String sig=getQSValue("sig",qs);
     				String dw=getQSValue("dw",qs);
     				if(dw==null) dw="1";
-    				if(dID==null || v==null || min==null || sig==null) {out.println("You must supply all four parameters: id, v, min, sig.");break;}
+    				if(dID==null || v==null || min==null || sig==null) {out.println(error("You must supply all four parameters: id, v, min, sig."));break;}
     				ds=datasetServer.datasets.get(dID);
-    				if(ds==null) {out.println("{\"success\":false,\"msg\":\"Dataset "+dID+" not found.\"}");break;}
+    				if(ds==null) {out.println(error("Dataset "+dID+" not found."));break;}
     				String[] varss=v.split(",");
     				Integer[] varsc;
     				try {
     					varsc=ds.GetVariableCodes(varss);
     				} catch (IOException e) {
-    					out.println("Some variable name(s) not found.");
+    					out.println(error("Some variable name(s) not found."));
     					break;
     				}
     				try {
@@ -379,7 +392,7 @@ public class ServerDispatch implements Runnable{
     					out.println(error(e.getMessage()));
     					break;
     				}
-    				out.println("{\"success\":true,\"id\":\""+aID+"\"}");
+    				out.println(success(aID));
     			}
     			break;
     			

@@ -53,8 +53,10 @@ get.analyses<-function(dataset) {
 	return(v)
 }
 
+# creates a new dataset from an R data frame with the columns: latitude longitude taxon
 new.dataset<-function(data,description=NULL) {
-	if( !("latitude" %in% colnames(data)) || !("longitude" %in% colnames(data)) || !("taxon" %in% colnames(data))) stop("Data frame must have the columns \"latitude\", \"longitude\" and \"taxa\".")
+	if(inherits(
+	if( !("latitude" %in% colnames(data)) || !("longitude" %in% colnames(data)) || !("taxon" %in% colnames(data))) stop("Data frame must have the columns \"latitude\", \"longitude\" and \"taxon\".")
 	
 	spp=strsplit(as.character(data[,"taxon"])," ")
 	len=sapply(spp,length)
@@ -76,4 +78,16 @@ new.dataset<-function(data,description=NULL) {
 	return(dwc)
 }
 
-data=data.frame(taxon=c("cistus ladanifer","cistus ladanifer","cistus ladanifer","cistus crispus"),latitude=c(38,37,37,38),longitude=c(-8,-8,-7,-9))
+new.analysis<-function(dataset,variables=c("latitude","longitude"),minFreq=5,sigmaPercent=0.01,downWeight=TRUE) {
+	variables=paste(variables,collapse=",")
+	res=fromJSON(
+		getURL(paste("localhost:7520/open?did=",dataset,"&v=",curlEscape(variables),"&min=",minFreq,"&sig=",sigmaPercent,"&dw=",ifelse(downWeight,1,0),sep=""))
+	)
+	if(!res$success) {
+		stop(res$msg)
+	} else {
+		return(res$msg)
+	}
+}
+
+#data=data.frame(taxon=c("cistus ladanifer","cistus ladanifer","cistus ladanifer","cistus crispus"),latitude=c(38,37,37,38),longitude=c(-8,-8,-7,-9))
