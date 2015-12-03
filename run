@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 SERVICE_NAME="ecoSpace Server"
-PATH_TO_JAR="java -Djava.library.path=../native/target -cp ../java/target/ecoSpace-server-java-1.0-SNAPSHOT.jar:./* pt.floraon.ecospace.EcoSpace"
+#PATH_TO_JAR="java -Djava.library.path=../native/target -cp ../java/target/ecoSpace-server-java-1.0-SNAPSHOT.jar:./* pt.floraon.ecospace.EcoSpace"
+PATH_TO_JAR="java -Djava.library.path=../native/target -jar ../java/target/ecoSpace-server-java-1.0-SNAPSHOT-jar-with-dependencies.jar"
 PID_PATH_NAME=/tmp/MyService-pid
 PORT=7520
 

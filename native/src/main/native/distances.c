@@ -32,7 +32,7 @@ JNIEXPORT jlong JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeDistance
 	dummy=fread(&ntaxa,sizeof(int),1,densfile);
 	IDs=malloc(ntaxa*sizeof(int));
 	dummy=fread(IDs,sizeof(int),ntaxa,densfile);
-	printf("Computing distance matrix\nReading densities for %d taxa:\n",ntaxa);
+	printf("Computing distance matrix\nReading densities for %d taxa.\n",ntaxa);
 //for(i=0;i<ntaxa;i++) printf("%d ",IDs[i]);
 	dummy=fread(&side,sizeof(int),1,densfile);
 	dummy=fread(&nvars,sizeof(int),1,densfile);
@@ -66,11 +66,12 @@ JNIEXPORT jlong JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeDistance
 			for(j=i;j<ntaxa;j++) distances[i+j*ntaxa]=NA_DISTANCE;
 			continue;
 		}
-		for(k=0;k<arraysize;k++) tmp1[k]=(float)densities[i].density[k]*densities[i].max/((float)MAXDENSITY*densities[i].sum);
+		for(k=0;k<arraysize;k++)
+			tmp1[k]=(float)densities[i].density[k]*densities[i].max/((float)MAXDENSITY*densities[i].sum);
+
 		#pragma omp parallel private(j,v,k,pd2,tmp2)
 		{
 //			printf("Parallelizing with %d threads...\n",omp_get_num_threads());fflush(stdout);
-
 			#pragma omp for
 			for(j=i;j<ntaxa;j++) {
 				if(densities[j].max<0 || IDs[j]==-1) {	// if this taxon has no kernel density (because of NAs)
@@ -80,6 +81,7 @@ JNIEXPORT jlong JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeDistance
 				v=0;
 				for(k=0,pd2=densities[j].density;k<arraysize;k++,pd2++) {
 					tmp2=(float)(*pd2)*densities[j].max/((float)MAXDENSITY*densities[j].sum);
+//			printf("%f : %f ",tmp1[k]*1000,tmp2*1000);
 					v+=(tmp1[k]<tmp2 ? tmp1[k] : tmp2);			
 				}
 				distances[i+j*ntaxa]=(unsigned char)((1-v)*MAXDISTANCE);

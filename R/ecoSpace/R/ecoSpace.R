@@ -54,21 +54,26 @@ get.analyses<-function(dataset) {
 }
 
 # creates a new dataset from an R data frame with the columns: latitude longitude taxon
+# OR from a DWC file
 new.dataset<-function(data,description=NULL) {
-	if(inherits(
-	if( !("latitude" %in% colnames(data)) || !("longitude" %in% colnames(data)) || !("taxon" %in% colnames(data))) stop("Data frame must have the columns \"latitude\", \"longitude\" and \"taxon\".")
+	if(inherits(data,"character")) {	# data is a filename
+		ori.dwc=read.csv(data,sep="\t",header=T,strings=F)
+		dwc=ori.dwc[,c("genus","taxonRank","specificEpithet","decimalLatitude","decimalLongitude")]
+	} else if(inherits(data,"data.frame")) {
+		if( !("latitude" %in% colnames(data)) || !("longitude" %in% colnames(data)) || !("taxon" %in% colnames(data))) stop("Data frame must have the columns \"latitude\", \"longitude\" and \"taxon\".")
 	
-	spp=strsplit(as.character(data[,"taxon"])," ")
-	len=sapply(spp,length)
-	if(any(len<2)) stop("Records must have valid taxon names and be at least to species level.")
+		spp=strsplit(as.character(data[,"taxon"])," ")
+		len=sapply(spp,length)
+		if(any(len<2)) stop("Records must have valid taxon names and be at least to species level.")
 	
-	dwc=data.frame(
-		genus=sapply(spp,"[",1)
-		,taxonRank=ifelse(len==2,"SPECIES","SUBSPECIES")
-		,specificEpithet=sapply(spp,"[",2)
-		,decimalLatitude=data[,"latitude"]
-		,decimalLongitude=data[,"longitude"]
-	)
+		dwc=data.frame(
+			genus=sapply(spp,"[",1)
+			,taxonRank=ifelse(len==2,"SPECIES","SUBSPECIES")
+			,specificEpithet=sapply(spp,"[",2)
+			,decimalLatitude=data[,"latitude"]
+			,decimalLongitude=data[,"longitude"]
+		)
+	} else stop("'data' must be either a data frame of taxon coordinates, or a path to a DarwinCore text file.")
 	
 	filename=tempfile()
 	write.table(dwc,file=filename,sep="\t",quote=FALSE,row.names=FALSE)
@@ -80,14 +85,27 @@ new.dataset<-function(data,description=NULL) {
 
 new.analysis<-function(dataset,variables=c("latitude","longitude"),minFreq=5,sigmaPercent=0.01,downWeight=TRUE) {
 	variables=paste(variables,collapse=",")
-	res=fromJSON(
-		getURL(paste("localhost:7520/open?did=",dataset,"&v=",curlEscape(variables),"&min=",minFreq,"&sig=",sigmaPercent,"&dw=",ifelse(downWeight,1,0),sep=""))
-	)
+	res=fromJSON( getURL(paste("localhost:7520/open?did=",dataset,"&v=",curlEscape(variables),"&min=",minFreq,"&sig=",sigmaPercent,"&dw=",ifelse(downWeight,1,0),sep="")) )
 	if(!res$success) {
 		stop(res$msg)
 	} else {
 		return(res$msg)
 	}
+}
+
+get.network<-function(dataset,analysis) {
+	res=fromJSON( getURL(paste("localhost:7520/status/",dataset,"/",analysis,sep="")) )
+	if(!res$success) {
+		stop(res$msg)
+	} else if(!res$msg$ready) stop("Dataset not ready: ",res$msg$state)
+	
+	content=getBinaryURL(paste("localhost:7520/get?q=all&sec=1&fmt=igraph&did=",dataset,"&aid=",analysis,sep=""))
+	tmp = tempfile()
+	writeBin(content, con = tmp)
+	load(tmp)
+	
+	# data.frame(vertex.attributes(graph))
+	return(graph)
 }
 
 #data=data.frame(taxon=c("cistus ladanifer","cistus ladanifer","cistus ladanifer","cistus crispus"),latitude=c(38,37,37,38),longitude=c(-8,-8,-7,-9))

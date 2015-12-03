@@ -180,6 +180,10 @@ public class Dataset {
 		} catch (IOException e) {
 			e.printStackTrace();
 			return;
+		} catch (NumberFormatException e1) {
+			e1.printStackTrace();
+			System.err.println("\nError processing the variable index in file datasets.xml. Confirm that all variables have the scale attribute.");
+			return;
 		}
 		
 //read and open handles for existing analyses

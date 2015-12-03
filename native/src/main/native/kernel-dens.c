@@ -121,9 +121,11 @@ JNIEXPORT jint JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeKernelDen
 
 		#pragma omp for
 		for(j=0;j<ntaxa;j++) {		// NOTE: this loop doesn't need the records to be sorted, that's why it takes much longer
+// TODO: we might have an index here, i.e. for each taxon, a list of tthe respective records, but it's so fast that maybe it's not a big issue, we're talking about a few thousands of taxa only.
 			if(freqs[j]<freqthresh) continue;
 			anythingtosave=false;
-			for(i=0;i<nrecs;i++) {	// iterate through all records in search for this taxon
+			for(i=0;i<nrecs;i++) {	// iterate through all records in search for this taxon ACK!! give me an index
+				if(pIDs[i]!=j) continue;
 				for(k=0,skiprec=false;k<nvarstouse;k++) {	// check if any one of the variables is NA. if it is, skip this record
 					if(vararray[i+nrecs*k]==RASTERNODATA) {
 						skiprec=true;

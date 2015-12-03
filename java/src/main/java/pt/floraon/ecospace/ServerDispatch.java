@@ -27,14 +27,22 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import org.apache.commons.codec.binary.Base64InputStream;
 import org.apache.commons.io.IOUtils;
+import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
+import org.apache.http.ProtocolVersion;
 import org.apache.http.RequestLine;
+import org.apache.http.StatusLine;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.client.utils.URLEncodedUtils;
+import org.apache.http.message.BasicHeader;
+import org.apache.http.message.BasicHttpResponse;
 import org.apache.http.message.BasicLineParser;
+import org.apache.http.message.BasicStatusLine;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.JSONValue;
@@ -100,12 +108,9 @@ public class ServerDispatch implements Runnable{
 		} catch (IOException e1) {
 			e1.printStackTrace();
 		}
-        try(PrintWriter out = new PrintWriter(new OutputStreamWriter(ostr, StandardCharsets.UTF_8), true);BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));) {
+        try(BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));) {
+        	PrintWriter out=null;
         	String line=in.readLine();
-        	if(line.equals("stop")) {
-        		thr.stop(out);
-        		return;
-        	}
         	BasicLineParser blp=new BasicLineParser();
         	RequestLine requestline=BasicLineParser.parseRequestLine(line,blp);
         	URI url=new URIBuilder(requestline.getUri()).build();
@@ -115,7 +120,50 @@ public class ServerDispatch implements Runnable{
         	//    		curl -G 'localhost:7530/adddataset/dwc' --data-urlencode "url=http://flora-on.pt:8080/ipt/archive.do?r=flora-on" --data-urlencode "desc=Plantas do Flora-On"
 
     		String[] path=url.getPath().split("/");
-    		if(path.length==0) {out.println(error("Missing command."));return;}
+    		if(path.length==0 || (path.length>1 && url.getPath().contains("."))) {	// asking for a web page!
+    			if(path.length<2) path=new String[] {"","index.html"};
+    			HttpResponse res=new BasicHttpResponse(new BasicStatusLine(new ProtocolVersion("HTTP",1,1),200,""));
+    			Pattern ext=Pattern.compile("\\.([a-zA-Z]+)$",Pattern.CASE_INSENSITIVE);
+    			Matcher match=ext.matcher(path[path.length-1].trim());
+    			if(match.find()) {
+    				switch(match.group(1)) {
+    				case "html":
+    				case "htm":
+    					out = new PrintWriter(new OutputStreamWriter(ostr, StandardCharsets.UTF_8), true);
+    					res.addHeader(new BasicHeader("Content-Type:","text/html"));
+    					break;
+    				case "png":
+    					out = new PrintWriter(ostr);
+    					res.addHeader(new BasicHeader("Content-Type:","image/png"));
+    					break;
+    				case "js":
+    					out = new PrintWriter(ostr);
+    					res.addHeader(new BasicHeader("Content-Type:","application/javascript"));
+    					break;
+    				case "css":
+    					out = new PrintWriter(ostr);
+    					res.addHeader(new BasicHeader("Content-Type:","text/css"));
+    					break;
+    				default:
+    					out = new PrintWriter(new OutputStreamWriter(ostr, StandardCharsets.UTF_8), true);
+    					res.addHeader(new BasicHeader("Content-Type:","text/html"));
+    					break;
+    				}
+    			}
+    			out.print(res.toString()+"\r\n");
+    			out.print("\r\n");
+    			out.flush();
+    			File page;
+    			if(path.length==2)
+    				page=new File("web/"+path[1]);
+    			else
+    				page=new File("web/"+path[1]+"/"+path[2]);
+    			IOUtils.copy(new FileInputStream(page), ostr);
+    			out.close();
+    			return;
+			}
+
+    		out = new PrintWriter(new OutputStreamWriter(ostr, StandardCharsets.UTF_8), true);
     		switch(path[1]) {
     		case "stop":
     			thr.stop(out);
@@ -464,6 +512,7 @@ public class ServerDispatch implements Runnable{
     				aID=getQSValue("aid",qs);
     				query=getQSValue("q",qs);	// this is a query that is sent as is to an external web service or local file
     				queryType=getQSValue("t",qs);	// this is either a taxon name or taxon ID query that is only searched internally
+    				// NOTE: if query is 'all', the full network will be returned.
     				String makeClusters=getQSValue("cls",qs);
     				String nnei=getQSValue("nn",qs);
     				String nlev=getQSValue("lev",qs);
@@ -569,7 +618,7 @@ public class ServerDispatch implements Runnable{
 						break;
 					case "igraph":	// TODO this code is clumsy and inefficient. This should be formalized in classes
 						Map<Long,String> nmap=new HashMap<Long,String>();
-						for(Object o:nodes) {
+						for(Object o:nodes) {	// IDs to taxon names
 							tmpo=(JSONObject)o;
 							nmap.put((Long)tmpo.get("id"), (String)tmpo.get("name"));
 						}
@@ -594,9 +643,12 @@ public class ServerDispatch implements Runnable{
 								bwwei.write(tmpo.get("wei").toString()+"\n");		// we assume the same weight for both directions (which is the maximum, see C code)
 							}
 						}
+						String cls;
 						for(Object o:nodes) {
 							tmpo=(JSONObject)o;
-							bwvert.write(tmpo.get("name").toString()+"\t"+tmpo.get("flow").toString()+"\t"+tmpo.get("ori").toString()+"\n");
+							cls=tmpo.get("cls").toString();
+							cls=cls.substring(1, cls.length()-1);
+							bwvert.write(tmpo.get("name").toString()+"\t"+tmpo.get("flow").toString()+"\t"+tmpo.get("ori").toString()+"\t\""+cls+"\"\n");
 						}
 						bwigrp.close();
 						bwwei.close();
@@ -612,6 +664,7 @@ public class ServerDispatch implements Runnable{
 									+ "graph=set_edge_attr(graph,'weight',value=b);"
 									+ "ind=V(graph)[match(c[,1],names(V(graph)))];"
 									+ "graph=set_vertex_attr(graph,'PageRank', index=ind,value=c[,2]);"
+									+ "graph=set_vertex_attr(graph,'Clusters', index=ind,value=c[,4]);"
 									+ "graph=set_vertex_attr(graph,'InList', index=ind,value=c[,3]);"
 									+ "save(graph,file='"+rdatatmpfile.getPath()+"');"});
 							pr.waitFor();
