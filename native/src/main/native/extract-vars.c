@@ -40,12 +40,14 @@ JNIEXPORT jint JNICALL Java_pt_floraon_ecospace_nativeFunctions_readVariablesFro
 	memset(variables,0,sizeof(VARIABLEHEADER)*MAXVARIABLES);
 
 	nfiles=readTiffFiles("tiff/",tiffiles,variables);
-	if(!nfiles) {
+	
+	// we don't force the user to have tiffs. can work with just lat long
+/*	if(!nfiles) {
 		free(tmpv);
 		free(stdlat);
 		free(stdlng);
 		return 0;
-	}
+	}*/
 
 	for(i=0;i<MAXVARIABLES;i++) {
 		variables[i].min=1000000;
@@ -206,6 +208,7 @@ JNIEXPORT jint JNICALL Java_pt_floraon_ecospace_nativeFunctions_readVariablesFro
     }
     
 	{	// write variable index text file (to be read in Java), which has the max and min for all vars, for this dataset
+	
 		FILE *varindex;
 		varindex=fopen(VARIABLELISTFILE(dID),"w");
 		

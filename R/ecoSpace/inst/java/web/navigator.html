@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+<title>ecoSpace | Explore species ecological affinities</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0">
+<link href='http://fonts.googleapis.com/css?family=Lato:400,300' rel='stylesheet' type='text/css'>
+<link rel="stylesheet" href="leaflet.css" />
+<link rel="stylesheet" href="leaflet.draw.css" />
+<link rel="icon" type="image/png" href="./favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="./favicon-194x194.png" sizes="194x194">
+<link rel="icon" type="image/png" href="./favicon-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="./android-chrome-192x192.png" sizes="192x192">
+<link rel="icon" type="image/png" href="./favicon-16x16.png" sizes="16x16">
+<script type="text/javascript" src="leaflet.js"></script>
+<script type="text/javascript" src="leaflet.draw.js"></script>
+<script type="text/javascript" src="leaflet-geodesy.js"></script>
+<script type="text/javascript" src="basefunctions.js"></script>
+<script type="text/javascript" src="d3.min.js" charset="utf-8"></script>
+<script type="text/javascript" src="ShortestPathCalculator.js"></script>
+<script type="text/javascript" src="visualizer.js"></script>
+<link rel="stylesheet" type="text/css" href="ecospace.css"/>
+</head>
+<body>
+
+<div id="mainholder">
+	<div id="navigator-holder" class="patfinder fullnetwork">
+		<div id="navigator" class="showclusters"></div>
+		<div id="topbar" class="noselect">
+			<div class="button round" id="but-home"><img src="images/home.png"/></div>
+			<div class="button" id="but-bioclim"><img src="images/bioclim.png"/><div class="legend">bioclimatic</div></div>
+			<div class="button toggle" id="but-addtax"><img src="images/add_nodes.png"/><div class="legend">add</div></div>
+			<div class="button" id="but-clean"><img src="images/clean.png"/><div class="legend">clean</div></div>
+			<div class="button" id="but-expand"><img src="images/expand_all.png"/><div class="legend">expand</div></div>
+			<div class="button toggle" id="but-navigator"><img src="images/clicknxpand.png"/><div class="legend">click'n expand</div></div>
+			<div class="button toggle" id="but-download"><img src="images/download.png"/><div class="legend">download</div></div>
+			<div class="buttongroup">
+				<div class="button small toggle" id="but-changematrix"><img src="images/distancematrix.png"/><div class="legend">distance matrix</div></div>
+				<div class="button small" id="but-upload"><img src="images/changespp.png"/><div class="legend">change species</div></div>
+			<div class="legend">change base data</div></div>
+			<div class="buttongroup" id="buts-nlevels">
+				<div id="expand-0" class="button toggle radio small"><div class="bigtext">0</div><div class="legend">orders</div></div>
+				<div id="expand-1" class="button toggle radio small selected"><div class="bigtext">1</div><div class="legend">order</div></div>
+				<div id="expand-2" class="button toggle radio small"><div class="bigtext">2</div><div class="legend">orders</div></div>
+				<div id="expand-3" class="button toggle radio small"><div class="bigtext">3</div><div class="legend">orders</div></div>
+			<div class="legend">expand nodes</div></div>
+			<div class="button small toggle selected" id="but-seclinks"><img src="images/add_nodes.png"/><div class="legend">secondary links</div></div>
+<!--				<div class="buttongroup">
+			<div class="legend">load</div></div>-->
+			<div id="but-nnei" class="button"><div class="bigtext" id="nneighbors">8</div><div class="legend">neighbors</div><div class="verticalslide nodisp"><div data-val="0">0</div><div data-val="1">1</div><div data-val="2" class="empty"></div><div data-val="3" class="empty"></div><div data-val="4" class="empty"></div><div data-val="5">5</div><div data-val="6" class="empty"></div><div data-val="7" class="empty"></div><div data-val="8" class="empty"></div><div data-val="9" class="empty"></div><div data-val="10">10</div><div data-val="11" class="empty"></div><div data-val="12" class="empty"></div><div data-val="13" class="empty"></div><div data-val="14" class="empty"></div><div data-val="15">15</div></div></div>
+			<div id="linklength" class="buttongroup">
+				<div id="view-compact" class="button toggle small radio"><img src="images/small_links.png"/><div class="legend">compact</div></div>
+				<div id="view-cozy" class="button toggle small radio selected"><img src="images/medium_links.png"/><div class="legend">cozy</div></div>
+				<div id="view-spatious" class="button toggle small radio"><img src="images/large_links.png"/><div class="legend">spatious</div></div>
+			<div class="legend">display</div></div>
+			<div id="but-hints" class="button round" style="float:right"><img src="images/hints.png"/></div>
+		</div>	<!-- topbar	-->
+		
+		<div id="densitymap-holder" class="nodisp"><div class="button"><img src="images/full_screen.png"/><div class="legend">fullscreen</div></div><h1>distribution of<br/><span id="distrib-name"></span></h1><div id="densitymap"></div></div>
+		<div id="clusterinfo"></div>
+		<div id="cornerlogo"><img src="images/logo_final.png"/></div>
+		<div id="grp-controls">
+			<div id="but-bang" class="button small"><img src="images/bang.png"/></div>
+			<!--<div id="but-stop" class="button toggle small"><img src="images/add_nodes.png"/><div class="legend">start/stop</div></div>-->
+			<div id="view-links" class="button toggle small selected"><img class="on" src="images/viewlinks-on.png"/><img class="off" src="images/viewlinks-off.png"/></div>
+			<div id="view-labels" class="button toggle small selected textonly nodisp">labels</div>
+			<div id="but-zoomin" class="button small round"><img src="images/zoomin.png"/></div>
+			<div id="but-zoomout" class="button small round"><img src="images/zoomout.png"/></div>
+			<div id="but-fullscreen" class="button small selected toggle"><img src="images/menu.png"/></div>
+		</div>
+		<div id="but-popup" class="button small dead textonly"><a class="external" href="" target="_blank">open in ecoSpace</a></div>
+		
+		<div id="wnd-downloads" class="window big" style="display:none;opacity:0">
+			<div class="closebutton"></div>
+			<h1 class="big">Download data</h1>
+			<div class="button big" id="but-downloadsvg"><img src="images/network.png"/><div class="legend"><h2>the full network</h2>as an SVG image<p class="info">download an exact copy of the current network as a self-contained SVG for your use</p></div></div>
+			<div class="button dead big" id="but-downloadigraph"><a class="external" href="" target="_blank"><img src="images/igraph.png"/></a><div class="legend"><a class="external" href="" target="_blank"><h2>the full network</h2>as an igraph object</a><p class="info">download the whole network ready to be opened by the 'igraph' R package</p></div><input type="hidden"/></div>
+			<div class="button dead big" id="but-download"><a class="external" href="" target="_blank"><img src="images/clustering.png"/></a><div class="legend"><a class="external" href="" target="_blank"><h2>the clustering results</h2>as a CSV data table</a><p class="info">download all the nodes and respective clusters in a table</p></div><input type="hidden"/></div>
+			<div class="button dead big" id="but-distdownload"><a class="external" href="" target="_blank"><img src="images/matrixdown.png"/></a><div class="legend"><a class="external" href="" target="_blank"><h2>the underlying distance matrix</h2>as an R data file</a><p class="info">download the matrix with bioclimatic distances between all pairs os species in use, for direct use in R</p></div><input type="hidden"/></div>
+		</div>
+	</div>
+</div>
+
+<!--<div id="footer">by <a class="external" href="http://devpost.com/software/ecospace-2" target="_blank">Miguel Porto</a> | <a class="external" target="_blank" href="https://github.com/miguel-porto/ecoSpace-server">fork me on GitHub</a> | <a class="external" href="http://www.flora-on.pt/" target="_blank">Sociedade Portuguesa de Botânica</a> | <a class="external" href="http://maerua.iict.pt/applecol/" target="_blank">ApplEcol</a></div>-->
+<div id="loader">
+<!-- adapted from http://loading.io/ -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid" class="uil-ellipsis">
+<circle cx="16" cy="50" r="15" fill="#403d3d"><animate id="anir11" attributeName="r" from="0" to="15" begin="0s;anir14.end" dur="0.25s" fill="freeze"></animate><animate id="anir12" attributeName="r" from="15" to="15" begin="anir11.end" dur="1.25s" fill="freeze"></animate><animate id="anir13" attributeName="r" from="15" to="0" begin="anir12.end" dur="0.25s" fill="freeze"></animate><animate id="anir14" attributeName="r" from="0" to="0" begin="anir13.end" dur="0.25s" fill="freeze"></animate><animate id="anix11" attributeName="cx" from="16" to="16" begin="0s;anix18.end" dur="0.25s" fill="freeze"></animate><animate id="anix12" attributeName="cx" from="16" to="16" begin="anix11.end" dur="0.25s" fill="freeze"></animate><animate id="anix13" attributeName="cx" from="16" to="50" begin="anix12.end" dur="0.25s" fill="freeze"></animate><animate id="anix14" attributeName="cx" from="50" to="50" begin="anix13.end" dur="0.25s" fill="freeze"></animate><animate id="anix15" attributeName="cx" from="50" to="84" begin="anix14.end" dur="0.25s" fill="freeze"></animate><animate id="anix16" attributeName="cx" from="84" to="84" begin="anix15.end" dur="0.25s" fill="freeze"></animate><animate id="anix17" attributeName="cx" from="84" to="84" begin="anix16.end" dur="0.25s" fill="freeze"></animate><animate id="anix18" attributeName="cx" from="84" to="16" begin="anix17.end" dur="0.25s" fill="freeze"></animate></circle>
+<circle cx="50" cy="50" r="15" fill="#808a80"><animate id="anir21" attributeName="r" from="15" to="15" begin="0s;anir25.end" dur="1s" fill="freeze"></animate><animate id="anir22" attributeName="r" from="15" to="0" begin="anir21.end" dur="0.25s" fill="freeze"></animate><animate id="anir23" attributeName="r" from="0" to="0" begin="anir22.end" dur="0.25s" fill="freeze"></animate><animate id="anir24" attributeName="r" from="0" to="15" begin="anir23.end" dur="0.25s" fill="freeze"></animate><animate id="anir25" attributeName="r" from="15" to="15" begin="anir24.end" dur="0.25s" fill="freeze"></animate><animate id="anix21" attributeName="cx" from="16" to="50" begin="0s;anix28.end" dur="0.25s" fill="freeze"></animate><animate id="anix22" attributeName="cx" from="50" to="50" begin="anix21.end" dur="0.25s" fill="freeze"></animate><animate id="anix23" attributeName="cx" from="50" to="84" begin="anix22.end" dur="0.25s" fill="freeze"></animate><animate id="anix24" attributeName="cx" from="84" to="84" begin="anix23.end" dur="0.25s" fill="freeze"></animate><animate id="anix25" attributeName="cx" from="84" to="84" begin="anix24.end" dur="0.25s" fill="freeze"></animate><animate id="anix26" attributeName="cx" from="84" to="16" begin="anix25.end" dur="0.25s" fill="freeze"></animate><animate id="anix27" attributeName="cx" from="16" to="16" begin="anix26.end" dur="0.25s" fill="freeze"></animate><animate id="anix28" attributeName="cx" from="16" to="16" begin="anix27.end" dur="0.25s" fill="freeze"></animate></circle>
+<circle cx="84" cy="50" r="15" fill="#403d3d"><animate id="anir31" attributeName="r" from="15" to="15" begin="0s;anir35.end" dur="0.5s" fill="freeze"></animate><animate id="anir32" attributeName="r" from="15" to="0" begin="anir31.end" dur="0.25s" fill="freeze"></animate><animate id="anir33" attributeName="r" from="0" to="0" begin="anir32.end" dur="0.25s" fill="freeze"></animate><animate id="anir34" attributeName="r" from="0" to="15" begin="anir33.end" dur="0.25s" fill="freeze"></animate><animate id="anir35" attributeName="r" from="15" to="15" begin="anir34.end" dur="0.75s" fill="freeze"></animate><animate id="anix31" attributeName="cx" from="50" to="84" begin="0s;anix38.end" dur="0.25s" fill="freeze"></animate><animate id="anix32" attributeName="cx" from="84" to="84" begin="anix31.end" dur="0.25s" fill="freeze"></animate><animate id="anix33" attributeName="cx" from="84" to="84" begin="anix32.end" dur="0.25s" fill="freeze"></animate><animate id="anix34" attributeName="cx" from="84" to="16" begin="anix33.end" dur="0.25s" fill="freeze"></animate><animate id="anix35" attributeName="cx" from="16" to="16" begin="anix34.end" dur="0.25s" fill="freeze"></animate><animate id="anix36" attributeName="cx" from="16" to="16" begin="anix35.end" dur="0.25s" fill="freeze"></animate><animate id="anix37" attributeName="cx" from="16" to="50" begin="anix36.end" dur="0.25s" fill="freeze"></animate><animate id="anix38" attributeName="cx" from="50" to="50" begin="anix37.end" dur="0.25s" fill="freeze"></animate></circle>
+<circle cx="84" cy="50" r="15" fill="#808a80"><animate id="anir41" attributeName="r" from="15" to="0" begin="0s;anir44.end" dur="0.25s" fill="freeze"></animate><animate id="anir42" attributeName="r" from="0" to="0" begin="anir41.end" dur="0.25s" fill="freeze"></animate><animate id="anir43" attributeName="r" from="0" to="15" begin="anir42.end" dur="0.25s" fill="freeze"></animate><animate id="anir44" attributeName="r" from="15" to="15" begin="anir43.end" dur="1.25s" fill="freeze"></animate><animate id="anix41" attributeName="cx" from="84" to="84" begin="0s;anix48.end" dur="0.25s" fill="freeze"></animate><animate id="anix42" attributeName="cx" from="84" to="16" begin="anix41.end" dur="0.25s" fill="freeze"></animate><animate id="anix43" attributeName="cx" from="16" to="16" begin="anix42.end" dur="0.25s" fill="freeze"></animate><animate id="anix44" attributeName="cx" from="16" to="16" begin="anix43.end" dur="0.25s" fill="freeze"></animate><animate id="anix45" attributeName="cx" from="16" to="50" begin="anix44.end" dur="0.25s" fill="freeze"></animate><animate id="anix46" attributeName="cx" from="50" to="50" begin="anix45.end" dur="0.25s" fill="freeze"></animate><animate id="anix47" attributeName="cx" from="50" to="84" begin="anix46.end" dur="0.25s" fill="freeze"></animate><animate id="anix48" attributeName="cx" from="84" to="84" begin="anix47.end" dur="0.25s" fill="freeze"></animate></circle>
+<text x="50px" y="80px" dy="0.2em" style="text-anchor:middle;font-size:1.7em">loading</text>
+</svg>
+</div>
+</body>
+</html>
+

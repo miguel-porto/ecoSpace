@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en">
+<head>
+<title>ecoSpace | Explore species ecological affinities</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+<meta name="viewport" content="user-scalable=no, width=device-width, initial-scale=1.0">
+<link href='http://fonts.googleapis.com/css?family=Lato:400,300' rel='stylesheet' type='text/css'>
+<link rel="stylesheet" href="leaflet.css" />
+<link rel="stylesheet" href="leaflet.draw.css" />
+<link rel="icon" type="image/png" href="./favicon-32x32.png" sizes="32x32">
+<link rel="icon" type="image/png" href="./favicon-194x194.png" sizes="194x194">
+<link rel="icon" type="image/png" href="./favicon-96x96.png" sizes="96x96">
+<link rel="icon" type="image/png" href="./android-chrome-192x192.png" sizes="192x192">
+<link rel="icon" type="image/png" href="./favicon-16x16.png" sizes="16x16">
+<script type="text/javascript" src="leaflet.js"></script>
+<script type="text/javascript" src="leaflet.draw.js"></script>
+<script type="text/javascript" src="leaflet-geodesy.js"></script>
+<script type="text/javascript" src="basefunctions.js"></script>
+<script type="text/javascript" src="d3.min.js" charset="utf-8"></script>
+<script type="text/javascript" src="ShortestPathCalculator.js"></script>
+<script type="text/javascript" src="ecospace.js"></script>
+<script type="text/javascript" src="navigator.js"></script>
+<link rel="stylesheet" type="text/css" href="ecospace.css"/>
+</head>
+<body>
+<div id="whatsnew">
+<h1>What's new in this version</h1>
+<p>ecoSpace has been refurbished!<br/>It is now targeted at <em>revealing the biogeographic structure underlying species assemblages</em>, and identifying the main <em>biogeographic elements</em> that compose the user-provided species assemblage.
+<ul class="topics">
+<li><a href="?w=info#new">&gt; full list of new features</a></li>
+<li><a href="?w=info">&gt; how does it work?</a></li>
+<li><a href="?w=api">&gt; webservice API reference</a></li>
+<li><a href="images/ecoSpace-full-network-WA.jpg" target="_blank" class="external">&gt; download an example network</a></li>
+<li><a href="?ds=9eb&an=9ae&t=flora-on&q=canhão cársico de ota&nn=8&nlev=2&sec=1">&gt; tap here to see a quick working demo!</a></li>
+</ul>
+</p>
+<h2>Highlights</h2>
+<ul>
+<li>Uncover the hidden <em>biogeographic/ecological structure</em> in <em>species assemblages</em></li>
+<li><em>Upload species lists</em> and explore the ecological network they create based on user-selected <em>bioclimatic variables</em></li>
+<li><em>Change properties of the network structure</em> and <em>change the underlying distance matrix on the fly</em>, immediately observing the resulting structural network changes</li>
+<li>Integrate network information on external apps by using the <em>API webservices</em></li>
+<li><em>Embed</em> an ecoSpace <em>widget</em> in your webpage</li>
+<li><em>Download</em> the analysis results, the underlying distance matrix and the network itself as a stand-alone <em>SVG</em> or an <em>R igraph</em></li>
+</ul>
+</div>
+<div id="mainholder">
+	<img id="logo" alt="logo" src="images/logo_final.png"/>
+	<p id="splash">an interactive network analysis tool to reveal the underlying biogeographic and ecological structure in species assemblages</p>
+	<table id="summary-banner">
+	<tr>
+	<td><img src="images/summ1.png"/></td>
+	<td><img src="images/summ2.png"/></td>
+	<td><img src="images/summ3.png"/></td>
+	</tr>
+	<tr id="summary-legend">
+	<td>upload a species list</td>
+	<td>reveal & explore its<br/>biogeographic structure</td>
+	<td>download results</td>
+	</tr>
+	</table>
+</div>
+<div id="footer">by <a class="external" href="http://devpost.com/software/ecospace-2" target="_blank">Miguel Porto</a> | <a class="external" target="_blank" href="https://github.com/miguel-porto/ecoSpace-server">fork me on GitHub</a> | <a class="external" href="http://www.flora-on.pt/" target="_blank">Sociedade Portuguesa de Botânica</a> | <a class="external" href="http://maerua.iict.pt/applecol/" target="_blank">ApplEcol</a></div>
+<div id="loader">
+<!-- adapted from http://loading.io/ -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid" class="uil-ellipsis">
+<circle cx="16" cy="50" r="15" fill="#403d3d"><animate id="anir11" attributeName="r" from="0" to="15" begin="0s;anir14.end" dur="0.25s" fill="freeze"></animate><animate id="anir12" attributeName="r" from="15" to="15" begin="anir11.end" dur="1.25s" fill="freeze"></animate><animate id="anir13" attributeName="r" from="15" to="0" begin="anir12.end" dur="0.25s" fill="freeze"></animate><animate id="anir14" attributeName="r" from="0" to="0" begin="anir13.end" dur="0.25s" fill="freeze"></animate><animate id="anix11" attributeName="cx" from="16" to="16" begin="0s;anix18.end" dur="0.25s" fill="freeze"></animate><animate id="anix12" attributeName="cx" from="16" to="16" begin="anix11.end" dur="0.25s" fill="freeze"></animate><animate id="anix13" attributeName="cx" from="16" to="50" begin="anix12.end" dur="0.25s" fill="freeze"></animate><animate id="anix14" attributeName="cx" from="50" to="50" begin="anix13.end" dur="0.25s" fill="freeze"></animate><animate id="anix15" attributeName="cx" from="50" to="84" begin="anix14.end" dur="0.25s" fill="freeze"></animate><animate id="anix16" attributeName="cx" from="84" to="84" begin="anix15.end" dur="0.25s" fill="freeze"></animate><animate id="anix17" attributeName="cx" from="84" to="84" begin="anix16.end" dur="0.25s" fill="freeze"></animate><animate id="anix18" attributeName="cx" from="84" to="16" begin="anix17.end" dur="0.25s" fill="freeze"></animate></circle>
+<circle cx="50" cy="50" r="15" fill="#808a80"><animate id="anir21" attributeName="r" from="15" to="15" begin="0s;anir25.end" dur="1s" fill="freeze"></animate><animate id="anir22" attributeName="r" from="15" to="0" begin="anir21.end" dur="0.25s" fill="freeze"></animate><animate id="anir23" attributeName="r" from="0" to="0" begin="anir22.end" dur="0.25s" fill="freeze"></animate><animate id="anir24" attributeName="r" from="0" to="15" begin="anir23.end" dur="0.25s" fill="freeze"></animate><animate id="anir25" attributeName="r" from="15" to="15" begin="anir24.end" dur="0.25s" fill="freeze"></animate><animate id="anix21" attributeName="cx" from="16" to="50" begin="0s;anix28.end" dur="0.25s" fill="freeze"></animate><animate id="anix22" attributeName="cx" from="50" to="50" begin="anix21.end" dur="0.25s" fill="freeze"></animate><animate id="anix23" attributeName="cx" from="50" to="84" begin="anix22.end" dur="0.25s" fill="freeze"></animate><animate id="anix24" attributeName="cx" from="84" to="84" begin="anix23.end" dur="0.25s" fill="freeze"></animate><animate id="anix25" attributeName="cx" from="84" to="84" begin="anix24.end" dur="0.25s" fill="freeze"></animate><animate id="anix26" attributeName="cx" from="84" to="16" begin="anix25.end" dur="0.25s" fill="freeze"></animate><animate id="anix27" attributeName="cx" from="16" to="16" begin="anix26.end" dur="0.25s" fill="freeze"></animate><animate id="anix28" attributeName="cx" from="16" to="16" begin="anix27.end" dur="0.25s" fill="freeze"></animate></circle>
+<circle cx="84" cy="50" r="15" fill="#403d3d"><animate id="anir31" attributeName="r" from="15" to="15" begin="0s;anir35.end" dur="0.5s" fill="freeze"></animate><animate id="anir32" attributeName="r" from="15" to="0" begin="anir31.end" dur="0.25s" fill="freeze"></animate><animate id="anir33" attributeName="r" from="0" to="0" begin="anir32.end" dur="0.25s" fill="freeze"></animate><animate id="anir34" attributeName="r" from="0" to="15" begin="anir33.end" dur="0.25s" fill="freeze"></animate><animate id="anir35" attributeName="r" from="15" to="15" begin="anir34.end" dur="0.75s" fill="freeze"></animate><animate id="anix31" attributeName="cx" from="50" to="84" begin="0s;anix38.end" dur="0.25s" fill="freeze"></animate><animate id="anix32" attributeName="cx" from="84" to="84" begin="anix31.end" dur="0.25s" fill="freeze"></animate><animate id="anix33" attributeName="cx" from="84" to="84" begin="anix32.end" dur="0.25s" fill="freeze"></animate><animate id="anix34" attributeName="cx" from="84" to="16" begin="anix33.end" dur="0.25s" fill="freeze"></animate><animate id="anix35" attributeName="cx" from="16" to="16" begin="anix34.end" dur="0.25s" fill="freeze"></animate><animate id="anix36" attributeName="cx" from="16" to="16" begin="anix35.end" dur="0.25s" fill="freeze"></animate><animate id="anix37" attributeName="cx" from="16" to="50" begin="anix36.end" dur="0.25s" fill="freeze"></animate><animate id="anix38" attributeName="cx" from="50" to="50" begin="anix37.end" dur="0.25s" fill="freeze"></animate></circle>
+<circle cx="84" cy="50" r="15" fill="#808a80"><animate id="anir41" attributeName="r" from="15" to="0" begin="0s;anir44.end" dur="0.25s" fill="freeze"></animate><animate id="anir42" attributeName="r" from="0" to="0" begin="anir41.end" dur="0.25s" fill="freeze"></animate><animate id="anir43" attributeName="r" from="0" to="15" begin="anir42.end" dur="0.25s" fill="freeze"></animate><animate id="anir44" attributeName="r" from="15" to="15" begin="anir43.end" dur="1.25s" fill="freeze"></animate><animate id="anix41" attributeName="cx" from="84" to="84" begin="0s;anix48.end" dur="0.25s" fill="freeze"></animate><animate id="anix42" attributeName="cx" from="84" to="16" begin="anix41.end" dur="0.25s" fill="freeze"></animate><animate id="anix43" attributeName="cx" from="16" to="16" begin="anix42.end" dur="0.25s" fill="freeze"></animate><animate id="anix44" attributeName="cx" from="16" to="16" begin="anix43.end" dur="0.25s" fill="freeze"></animate><animate id="anix45" attributeName="cx" from="16" to="50" begin="anix44.end" dur="0.25s" fill="freeze"></animate><animate id="anix46" attributeName="cx" from="50" to="50" begin="anix45.end" dur="0.25s" fill="freeze"></animate><animate id="anix47" attributeName="cx" from="50" to="84" begin="anix46.end" dur="0.25s" fill="freeze"></animate><animate id="anix48" attributeName="cx" from="84" to="84" begin="anix47.end" dur="0.25s" fill="freeze"></animate></circle>
+<text x="50px" y="80px" dy="0.2em" style="text-anchor:middle;font-size:1.7em">loading</text>
+</svg>
+</div>
+</body>
+</html>

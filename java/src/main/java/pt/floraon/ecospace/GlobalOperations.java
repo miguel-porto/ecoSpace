@@ -219,9 +219,17 @@ public final class GlobalOperations {
 	 * @throws IOException
 	 */
 	public static Long addSpecies(String name) throws IOException {
+		
 		Long nubKey=GlobalOperations.species.get(name);
 		if(nubKey!=null) return nubKey;
 		
+		// we don't need to fetch the GBIF keys now, just a shortcut here
+		nubKey=99999L;
+		speciesNameWriter.write(name+"\t"+nubKey+"\n");
+		speciesNameWriter.flush();
+		//EcoSpace.outputlog.println("Added "+name+" "+nubKey);
+		return nubKey;
+		/*
 		JSONArray res;
 		URL gbifSp=new URL("http://api.gbif.org/v1/species?datasetKey=d7dddbf4-2cf0-4f39-9b2a-bb099caae36c&name="+name.replace(" ", "%20"));
 		JSONObject jobj=(JSONObject)JSONValue.parse(new InputStreamReader(gbifSp.openStream()));
@@ -235,7 +243,7 @@ public final class GlobalOperations {
 			speciesNameWriter.flush();
 			EcoSpace.outputlog.println("Added "+name+" "+nubKey);
 			return nubKey;
-		}
+		}*/
 	}
 
 	/**

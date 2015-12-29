@@ -30,7 +30,7 @@ public class EcoSpace {
 		to convert WorldClim to TIF
 		for f in *.bil; do gdal_translate -of GTiff -co "TFW=YES" -outsize 50% 50% $f ${f%.*}.tif; done
 		*/
-
+/*
 		if(args.length<1) {
 			outputlog.println("Expected arguments start | stop | direct");
 			return;
@@ -122,12 +122,14 @@ public class EcoSpace {
 				return;		    	
 		    }
 		}
-			
+			*/
 	}
 	public static void StartServer() {
 		new GlobalOperations();
 		DatasetServer dss = new DatasetServer();
 		MultiThreadedServer server = new MultiThreadedServer(serverPort,dss);
+		EcoSpace.outputlog.println("OK this is new");
+		EcoSpace.outputlog.flush();
 		server.run();
 	}
 }

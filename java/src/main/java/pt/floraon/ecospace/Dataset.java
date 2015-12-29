@@ -278,14 +278,16 @@ public class Dataset {
 		@Override
 		public void run() {
 			if(!dataint.ExecuteRequest()) {
+				EcoSpace.outputlog.println("Error processing occurrences.");
 				dataint.State=DATASETSTATE.ERROR;
 				dp=null;
 				return;
 			}
 			dataint.State=DATASETSTATE.READING_VARIABLES;
 			updateNumRecords(dataint.sdataset.taxID.length);
+			EcoSpace.outputlog.println("Number of species: "+dataint.sdataset.speciesList.size()+"; "+dataint.sdataset.speciesList.get(0));
 			nativeFunctions.readVariablesFromCoords(dataint.sdataset.getLatArray(),dataint.sdataset.getLngArray(),dataint.sdataset.taxID,dataint.sdataset.speciesList.size(),dID);
-			EcoSpace.outputlog.println("Ok");
+			EcoSpace.outputlog.println("Read variables, ok.");
 			try {
 				Open();
 			} catch(IOException e) {
