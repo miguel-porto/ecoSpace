@@ -17,6 +17,7 @@ public class nativeFunctions {
 	static native long computeDistanceMatrix(String dID,String aID,long handle);
 	static native int getProgressDistanceMatrix(long handle,boolean free);
 	static native int computeKernelDensities(String dID,String aID,int[] variables,int frequencyThreshold,float sigmaPercent,boolean downWeight);
+	static native String exportExtractedVariables(String dID);
 	static native long[] openDistanceMatrix(String dID,String aID);
 	static native String exportDistanceMatrix(long handle);
 	//static native String queryRelatedTaxa(long handle,int taxID,int nlevels,int maxperlevel);
@@ -30,7 +31,7 @@ public class nativeFunctions {
 	 * @param makeClusters	Boolean. Use Infomap to partition the network into clusters?
 	 * @return	JSON string ready for d3.js
 	 */
-	static native String getRelationships(long handle,int[] taxID,int nlevels,int maxperlevel,boolean loadSecondaryLinks,boolean makeClusters);
+	static native String getRelationships(long handle,int[] taxID, int[] abundances,int nlevels,int maxperlevel,boolean loadSecondaryLinks,boolean makeClusters);
 	static native int closeDistanceMatrix(long handle);
 	static native byte[] getDensityPNG();
 	static {

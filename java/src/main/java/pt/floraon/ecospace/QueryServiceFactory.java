@@ -25,6 +25,10 @@ public final class QueryServiceFactory {
 			case "file":
 				qserv=new LocalFileQueryService(query);
 				break;
+			case "json":
+				qserv=new JSONQueryService(query);
+				break;
+				
 			default:	// custom query service
 				qserv=new ExternalQueryService(GlobalOperations.getQueryService(queryType),query); 
 				break;

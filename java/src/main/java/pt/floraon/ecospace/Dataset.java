@@ -9,8 +9,10 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.UUID;
 
@@ -36,33 +38,35 @@ public class Dataset {
 		 * @param query An array of either internal IDs or canonical species names. Can be mixed.
 		 * @return An array of internal taxon IDs. Note: if a given input element is not found in this {@link Dataset}, no ID is returned. Hence, the number of elements of the output array may not be the same as the input array
 		 */
-		public List<Integer> parseQuery(String[] query) {
+		public Map<Integer, Integer> parseQuery(Map<String, Integer> query) {
 			String tmp;
-			List<Integer> out=new ArrayList<Integer>();
-			if(query.length==1 && query[0].toLowerCase().equals("all")) {
-				out.add(-1);
+			Map<Integer, Integer> out=new HashMap<Integer, Integer>();
+			if(query.size()==1 && query.containsKey("all")) {
+				out.put(-1, 1);
 				return out;
 			} else {
-				for(int i=0;i<query.length;i++) {
-					if(query[i]==null) continue;
-					tmp=query[i].toLowerCase();
+				for(Entry<String, Integer> e: query.entrySet()) {
+				//for(int i=0;i<query.length;i++) {
+					//if(query[i]==null) continue;
+					tmp = e.getKey().toLowerCase();
+					
 					if(tmp.matches("^iid:[0-9]+$"))		// query is an internal taxon ID
-						out.add(Integer.parseInt(tmp.substring(4)));
+						out.put(Integer.parseInt(tmp.substring(4)), e.getValue());
 					else if(tmp.matches("^[0-9]+$")) {		// query is a plain number, which is assumed to be a GBIF nubKey ID
 						tmp=GlobalOperations.getSpeciesFromNub(Long.parseLong(tmp));
 						if(tmp==null) continue; else tmp=tmp.toLowerCase();
 						for(int i1=0;i1<this.size();i1++) {
 							if(this.get(i1).toLowerCase().equals(tmp)) {
-								out.add(i1);
+								out.put(i1, e.getValue());
 								break;
 							}
 						}
 					} else {			// query is assumed to be a canonical species name; any string can go here, if it does not match, it is silently ignored.
 						// TODO better parse species names, perhaps use GBIF services
 						tmp=tmp.replace("+", " ");
-						for(int i1=0;i1<this.size();i1++) {
+						for(int i1=0; i1<this.size(); i1++) {
 							if(this.get(i1).toLowerCase().equals(tmp)) {
-								out.add(i1);
+								out.put(i1, e.getValue());
 								break;
 							}
 						}
@@ -147,6 +151,14 @@ public class Dataset {
 			if(vars[i]>vars.length) codes[i]="NA"; else codes[i]=Variables.get(i).name;
 		}
 		return(codes);
+	}
+	
+	public Map<String, Integer> getTaxonNames() {
+		Map<String, Integer> out = new HashMap<String, Integer>();
+		for(int i=0; i<this.taxonNames.size(); i++) {
+			out.put(this.taxonNames.get(i), this.TaxonFrequencies.get(i));
+		}
+		return out;
 	}
 	/**
 	 * Open a dataset by reading files into memory
@@ -235,7 +247,7 @@ public class Dataset {
 		} else return null;
 	}
 
-	public String Query(String aID,Integer[] taxID,int nNeigh,int nLevels,boolean loadSecondaryLinks,boolean makeClusters) throws DatasetException, IOException {
+	public String Query(String aID,Map<Integer, Integer> taxID,int nNeigh,int nLevels,boolean loadSecondaryLinks,boolean makeClusters) throws DatasetException, IOException {
 		Analysis an=this.analyses.get(aID);
 		if(an==null) throw new DatasetException("Analysis "+aID+" not found.");
 		return an.Query(taxID,nNeigh,nLevels,loadSecondaryLinks,makeClusters);
@@ -417,10 +429,22 @@ public class Dataset {
 				this.handle=0;
 			} else EcoSpace.outputlog.println("Already closed");
 		}
-		public String Query(Integer[] taxID,int nNeigh,int nLevels,boolean loadSecondaryLinks, boolean makeClusters) throws DatasetException, IOException {
-			int[] tmp=nativeFunctions.toPrimitiveInt(Arrays.asList(taxID));
+		public String Query(Map<Integer, Integer> taxID,int nNeigh,int nLevels,boolean loadSecondaryLinks, boolean makeClusters) throws DatasetException, IOException {
+			Iterator<Entry<Integer, Integer>> it = taxID.entrySet().iterator();
+			Entry<Integer, Integer> tmp;
+			int[] tmpIDs = new int[taxID.size()];
+			int[] tmpAbu = new int[taxID.size()];
+			int c = 0;
+			while(it.hasNext()) {
+				tmp = it.next();
+				tmpIDs[c] = tmp.getKey().intValue();
+				tmpAbu[c] = tmp.getValue().intValue();
+				c++;
+			}
+			
+					//nativeFunctions.toPrimitiveInt(Arrays.asList(taxID.keySet().toArray(new Integer[0])));
 			if(this.handle!=0 && this.State==ANALYSISSTATE.READY) {
-				String out=nativeFunctions.getRelationships(this.handle, tmp, nLevels, nNeigh, loadSecondaryLinks, makeClusters);
+				String out=nativeFunctions.getRelationships(this.handle, tmpIDs, tmpAbu, nLevels, nNeigh, loadSecondaryLinks, makeClusters);
 				if(out==null)
 					throw new IOException("Some error occurred while fetching relations");
 				else

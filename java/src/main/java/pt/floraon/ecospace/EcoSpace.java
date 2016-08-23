@@ -1,15 +1,9 @@
 package pt.floraon.ecospace;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.io.PrintStream;
-import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
-import java.net.Socket;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
@@ -17,14 +11,28 @@ public class EcoSpace {
 	public static int serverPort=7520;
 	public static PrintStream outputlog;
 	public static void main( final String[] args ) throws InterruptedException {
+		try {
+			outputlog=new PrintStream(new File("ecospace_log.txt"),StandardCharsets.UTF_8.toString());
+			System.setErr(outputlog);
+			System.setOut(outputlog);
+			Date now=new Date();
+			outputlog.println("**********************SERVER START ON "+now.toString()+"***************************************\n");
+			System.err.println("Testing err redirect...");
+		} catch (FileNotFoundException | UnsupportedEncodingException e) {
+			e.printStackTrace();
+			outputlog=System.out;
+		}
+		StartServer();
+/*
 		int maxAttemps=100;
 		try {
 			outputlog=new PrintStream(System.out,true,StandardCharsets.UTF_8.toString());
+			System.setErr(outputlog);
+			System.setOut(outputlog);
 		} catch (UnsupportedEncodingException e1) {
 			outputlog=System.out;
 		}
-		
-		StartServer();
+		StartServer();*/
 
 		/*
 		to convert WorldClim to TIF

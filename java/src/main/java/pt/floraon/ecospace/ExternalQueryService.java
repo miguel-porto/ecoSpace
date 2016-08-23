@@ -9,9 +9,10 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.util.HashSet;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Set;
+import java.util.Map;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -40,7 +41,8 @@ public class ExternalQueryService implements QueryService {
 	}
 	
 	@Override
-	public String[] executeQuery() {
+	public Map<String, Integer> executeQuery() {
+		Map<String, Integer> out = new HashMap<String, Integer>();
 		URI uri;
 		StringBuilder resp;
 		try {
@@ -54,11 +56,8 @@ public class ExternalQueryService implements QueryService {
 				resp.append(inputLine);
 			in1.close();
 		} catch (URISyntaxException | IOException e) {
-			return new String[0];
+			return Collections.emptyMap();
 		}
-		
-		Set<String> spset=null;
-		String[] processedQuery = new String[0];
 		
 		// for now, we must hard code the parsing of the response here...
 		switch(this.name) {
@@ -67,16 +66,12 @@ public class ExternalQueryService implements QueryService {
 			JSONObject sp;
 			@SuppressWarnings("unchecked")
 			Iterator<JSONObject> species=respobj.iterator();
-			spset=new HashSet<String>();
 			while(species.hasNext()) {
 				sp=species.next();
-				spset.add(sp.get("genero")+" "+sp.get("especie"));
+				out.put(sp.get("genero")+" "+sp.get("especie"), 1);
 			}
 			break;
 		}
-		if(spset!=null)
-			return spset.toArray(processedQuery);
-		else
-			return processedQuery;
+		return out;
 	}
 }

@@ -49,6 +49,7 @@ xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xs
 								<fileName>readtiffs.c</fileName>
 								<fileName>kernel-dens.c</fileName>
 								<fileName>build-kernel.c</fileName>
+								<fileName>exportvars.c</fileName>
 							</fileNames>
 						</source>
 

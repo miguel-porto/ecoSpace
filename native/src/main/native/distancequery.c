@@ -6,7 +6,6 @@
 #include <errno.h>
 #include <unistd.h>
 #include "econav.h"
-#define PUSHNODE(tpos,lev) {nodes.nodes[nodes.nnodes]=tpos;nodes.level[nodes.nnodes]=lev;nodes.nnodes++;}
 #define CLUSTERBUFSIZE	15
 /*
 	This needs refactoring!!!
@@ -18,7 +17,7 @@
 
 typedef struct {
 	int srcid,tarid;
-	float dist;
+	float similarity;
 	bool bidirectional;
 } LINK;
 
@@ -29,13 +28,55 @@ typedef struct {
 
 typedef struct {
 	int nnodes;
-	int *nodes,*level;
+	int *nodes,*level,*abundance;
 } NODES;
 
-void findRelatedTaxa(int taxpos,int howmany,DISTANCE *dist,unsigned char *distance,NODES *outnodes,LINKS *outlinks,int level,bool onlyexisting);
+void findRelatedTaxa(int taxpos,int taxAbundance, int howmanyNeigh,DISTANCE *dist,unsigned char *distance,NODES *outnodes,LINKS *outlinks,int level,bool onlyexisting);
 int linkAlreadyExists(int node1,int node2,LINKS *linkarray);
 static int numOutputLinks=100,outBufferSize=100000;
 static long numOutputNodes;
+/**
+* Pushes or updates a node to the output stack. When updating, its abundance is increased by abund.
+*/
+bool PUSHNODE(int tpos, int level, int abund, NODES *nodes, bool onlyexisting) {
+	bool exists;
+	void *tmppointer;
+	int i;
+	for(i=0, exists=false; i<nodes->nnodes; i++) {
+		if(nodes->nodes[i] == tpos) {exists=true;break;}
+	}
+	if(onlyexisting && !exists) return false;	// forget node, we can't add it
+	
+	if(!exists && nodes->nnodes >= numOutputNodes) {
+		numOutputNodes += 20;
+		if((tmppointer=realloc(nodes->nodes,sizeof(int)*numOutputNodes)))
+			nodes->nodes=tmppointer;
+		else error("Some error reallocating");
+
+		if((tmppointer=realloc(nodes->abundance,sizeof(int)*numOutputNodes)))
+			nodes->abundance=tmppointer;
+		else error("Some error reallocating");
+	
+		if((tmppointer=realloc(nodes->level,sizeof(int)*numOutputNodes)))
+			nodes->level=tmppointer;
+		else error("Some error reallocating");
+	
+		printf("Increased buffer for nodes, %d %ld\n",nodes->nnodes,numOutputNodes);
+		
+		i = nodes->nnodes;
+	}
+
+	if(!exists) {
+		nodes->nodes[i] = tpos;
+		nodes->level[i] = level;
+		nodes->abundance[i] = abund;
+		nodes->nnodes++;
+	} else {
+		nodes->level[i] = (level < nodes->level[i] ? level : nodes->level[i]);	// the mininum level is kept
+		nodes->abundance[i] += abund;
+	}
+	return true;
+}
 
 JNIEXPORT jlongArray JNICALL Java_pt_floraon_ecospace_nativeFunctions_openDistanceMatrix(JNIEnv *env, jclass obj, jstring dID, jstring aID) {
 	const char *pdID=(*env)->GetStringUTFChars(env, dID , NULL );
@@ -124,15 +165,17 @@ JNIEXPORT jint JNICALL Java_pt_floraon_ecospace_nativeFunctions_closeDistanceMat
 	free(dist->IDs);
 	free(dist->freqs);
 	free(dist);
+	return 0;
 }
 
-void findRelatedTaxa(int basetax,int howmany,DISTANCE *dist,unsigned char *distance,NODES *nodes,LINKS *outlinks,int level,bool onlyexisting) {
+void findRelatedTaxa(int basetax,int taxAbundance,int howmanyNeigh, DISTANCE *dist,unsigned char *distance,NODES *nodes,LINKS *outlinks,int level,bool onlyexisting) {
 	int which,offset,mind=0,k,j,noadd,i;
 	void *tmppointer;
+	bool exists;
 	offset=basetax*dist->ntaxa;
 
-	for(k=0;k<howmany;k++) {
-//	while(k<howmany) {
+	for(k=0;k<howmanyNeigh;k++) {
+//	while(k<howmanyNeigh) {
 		mind=NA_DISTANCE+1;
 		which=-1;
 		for(j=0;j<dist->ntaxa;j++) {	// search for the taxon with the lowest distance
@@ -141,39 +184,20 @@ void findRelatedTaxa(int basetax,int howmany,DISTANCE *dist,unsigned char *dista
 				which=j;
 			}
 		}
-
 		if(which==-1 || mind>MAXLINKDISTANCE) break;
 		
-		for(i=0,noadd=0;i<nodes->nnodes;i++) {
-			if(nodes->nodes[i]==which) {noadd=1;break;}
-		}
-		if(onlyexisting && !noadd) continue;
-		if(!noadd) {
-			if(nodes->nnodes>=numOutputNodes) {
-				numOutputNodes+=20;
-				if((tmppointer=realloc(nodes->nodes,sizeof(int)*numOutputNodes)))
-					nodes->nodes=tmppointer;
-				else error("Some error reallocating");
-				
-				if((tmppointer=realloc(nodes->level,sizeof(int)*numOutputNodes)))
-					nodes->level=tmppointer;
-				else error("Some error reallocating");
-				
-				printf("Increased buffer for nodes, %d %ld\n",nodes->nnodes,numOutputNodes);
-			}
-			nodes->nodes[nodes->nnodes]=which;
-			nodes->level[nodes->nnodes]=level;
-			nodes->nnodes++;
-		}
-		
+		exists = PUSHNODE(which, level, taxAbundance, nodes, onlyexisting);
 
+		if(onlyexisting && !exists) continue;
+		
 		int laa=linkAlreadyExists(basetax,which,outlinks);
+		float similarity = (1.0f-(float)distance[which+offset]/MAXDISTANCE) * (float)taxAbundance;
 		if(laa>-1) {
 			outlinks->links[laa].bidirectional=true;
-			outlinks->links[laa].dist=(outlinks->links[laa].dist > (1.0f-(float)distance[which+offset]/MAXDISTANCE) ? outlinks->links[laa].dist : (1.0f-(float)distance[which+offset]/MAXDISTANCE));
+			outlinks->links[laa].similarity =			// set the similarity to the largest similarity of the two.
+				(outlinks->links[laa].similarity > similarity ? outlinks->links[laa].similarity : similarity);
 		} else {
-			if(outlinks->nlinks>=numOutputLinks) {
-	//			outlinks->links=realloc(outlinks->links,sizeof(outlinks->links)+sizeof(LINK)*20);
+			if(outlinks->nlinks >= numOutputLinks) {
 				numOutputLinks+=1000;
 				if((tmppointer=realloc(outlinks->links,sizeof(LINK)*numOutputLinks)))
 					outlinks->links=tmppointer;
@@ -181,13 +205,13 @@ void findRelatedTaxa(int basetax,int howmany,DISTANCE *dist,unsigned char *dista
 				printf("Increased buffer for links\n");
 			}
 		
-			outlinks->links[outlinks->nlinks].srcid=basetax;
-			outlinks->links[outlinks->nlinks].tarid=which;
-			outlinks->links[outlinks->nlinks].dist=1.0f-(float)distance[which+offset]/MAXDISTANCE;
-			outlinks->links[outlinks->nlinks].bidirectional=false;
+			outlinks->links[outlinks->nlinks].srcid = basetax;
+			outlinks->links[outlinks->nlinks].tarid = which;
+			outlinks->links[outlinks->nlinks].similarity = 9999;//similarity;
+			outlinks->links[outlinks->nlinks].bidirectional = false;
 			outlinks->nlinks++;
-		}		
-		distance[which+offset]=NA_DISTANCE;
+		}
+		distance[which+offset] = NA_DISTANCE;	// mark this node so that it won't be repeated within this expansion loop
 	}
 }
 
@@ -195,7 +219,7 @@ void findRelatedTaxa(int basetax,int howmany,DISTANCE *dist,unsigned char *dista
 int linkAlreadyExists(int node1,int node2,LINKS *linkarray) {
 	int i;
 	for(i=0;i<linkarray->nlinks;i++) {
-		if((linkarray->links[i].srcid==node1 && linkarray->links[i].tarid==node2) || (linkarray->links[i].srcid==node2 && linkarray->links[i].tarid==node1)) return i;
+		if((linkarray->links[i].srcid == node1 && linkarray->links[i].tarid == node2) || (linkarray->links[i].srcid == node2 && linkarray->links[i].tarid == node1)) return i;
 	}
 	return -1;
 }
@@ -205,7 +229,8 @@ int linkAlreadyExists(int node1,int node2,LINKS *linkarray) {
 	taxID: internal taxon IDs to load
 	
 */
-JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationships(JNIEnv *env, jclass obj, jlong ptr, jintArray taxID, jint nlevels, jint maxperlevel, jboolean loadsecondarylinks, jboolean makeClusters) {
+JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationships(JNIEnv *env, jclass obj, jlong ptr, jintArray taxID, jintArray abund, jint nlevels, jint maxperlevel, jboolean loadsecondarylinks, jboolean makeClusters) {
+
 	char buf[1000];
 	char *out=malloc(outBufferSize);
 	void *tmppointer;
@@ -218,6 +243,7 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 	}*/
 	DISTANCE *dist=(DISTANCE*)ptr;
 	jint *tid = (*env)->GetIntArrayElements(env, taxID, 0);
+	jint *tab = (*env)->GetIntArrayElements(env, abund, 0);
 	jsize lenquery = (*env)->GetArrayLength(env, taxID);
 	if(lenquery>0 && tid[0]==-1) {
 		lenquery=dist->ntaxa;		// special case: -1 means to query all species
@@ -225,7 +251,7 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 		loadsecondarylinks=true;
 		all=true;
 	}
-	int i,j,taxpos;
+	int i,j,taxpos,taxabund;
 	NODES nodes;
 	LINKS links;
 	unsigned char *distance=malloc(sizeof(char)*dist->ntaxa*dist->ntaxa);	// must create a copy of original distance matrix to work
@@ -233,7 +259,7 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 	float *flow;
 	setlocale(LC_NUMERIC, "C");	
 
-	{
+	{	// redirect stdout to file
 		int fd;
 		fpos_t pos;
 		fflush(stdout);
@@ -246,18 +272,22 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 	if(numOutputNodes>20000 && nlevels>0) numOutputNodes=20000;
 	nodes.nodes=malloc(sizeof(int)*numOutputNodes);
 	if(!nodes.nodes) {printf("Error allocating memory for %ld nodes\n",numOutputNodes);fflush(stdout);return (*env)->NewGlobalRef(env, NULL);}
+	nodes.abundance=malloc(sizeof(int)*numOutputNodes);
+	if(!nodes.abundance) {printf("Error allocating memory for %ld abundances\n",numOutputNodes);fflush(stdout);return (*env)->NewGlobalRef(env, NULL);}
 	nodes.level=malloc(sizeof(int)*numOutputNodes);
-	if(!nodes.level) {free(nodes.nodes);printf("Error allocating memory for %ld nodes\n",numOutputNodes);fflush(stdout);return (*env)->NewGlobalRef(env, NULL);}
+	if(!nodes.level) {free(nodes.nodes);free(nodes.abundance);printf("Error allocating memory for %ld nodes\n",numOutputNodes);fflush(stdout);return (*env)->NewGlobalRef(env, NULL);}
 	links.links=malloc(sizeof(LINK)*numOutputLinks);
 	nodes.nnodes=0;
 	links.nlinks=0;
 	
-	printf("Memory OK\n");
+	printf("Memory OK, allocated space for %d nodes.\n",numOutputNodes);
+	printf("This is the abundance version.\n");
+	printf("The first abundances are: %d %d %d %d\n",tab[0],tab[1],tab[2],tab[3]);
 	fflush(stdout);
 // search for the position of each taxon ID
 	if(all) {
 		for(i=0;i<dist->ntaxa;i++) {	// push all valid nodes
-			if(dist->IDs[i]>0) PUSHNODE(i,0);
+			if(dist->IDs[i]>0) PUSHNODE(i, 0, 1, &nodes, false);
 		}
 	} else {
 		for(i=0;i<lenquery;i++) {
@@ -265,7 +295,7 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 				if(dist->IDs[taxpos]==(int)tid[i]) break;
 			}
 			if(taxpos==dist->ntaxa) continue;	// taxID not found
-			PUSHNODE(taxpos,0);		// push into output node stack
+			PUSHNODE(taxpos, 0, tab[i], &nodes, false);		// push into output node stack
 		}
 	}
 	
@@ -274,7 +304,9 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 		result = (*env)->NewStringUTF(env,out);
 
 		(*env)->ReleaseIntArrayElements(env, taxID, tid, 0);
+		(*env)->ReleaseIntArrayElements(env, abund, tab, 0);
 		free(nodes.nodes);
+		free(nodes.abundance);
 		free(nodes.level);
 		free(links.links);
 		free(distance);
@@ -282,24 +314,27 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 	}
 //	for(i=0;i<nodes.nnodes;i++) printf("%d\n",nodes.nodes[i]);
 
-	if(maxperlevel>0) {
+	if(maxperlevel>0) {	// node expansion loop
 		memcpy(distance,dist->dist,sizeof(char)*dist->ntaxa*dist->ntaxa);
 	
 		int counter=1;
-		taxpos=nodes.nodes[0];
+		taxpos = nodes.nodes[0];
+		taxabund = nodes.abundance[0];
 		do {
-			if(nodes.level[counter-1]+1<=(int)nlevels)	// explode: the children of this node will still be inside the max nr of levels
-				findRelatedTaxa(taxpos,maxperlevel,dist,distance,&nodes,&links,nodes.level[counter-1]+1,false);
+			if(nodes.level[counter-1]+1 <= (int)nlevels)	// explode: the children of this node will still be inside the max nr of levels
+				findRelatedTaxa(taxpos, taxabund,maxperlevel,dist,distance,&nodes,&links,nodes.level[counter-1]+1,false);
 			else {
-				if(loadsecondarylinks) findRelatedTaxa(taxpos,maxperlevel,dist,distance,&nodes,&links,nodes.level[counter-1]+1,true);
+				if(loadsecondarylinks) findRelatedTaxa(taxpos, taxabund,maxperlevel,dist,distance,&nodes,&links,nodes.level[counter-1]+1,true);
 			}
-			taxpos=nodes.nodes[counter];	// move on to the next node
+			taxpos = nodes.nodes[counter];	// move on to the next node
+			taxabund = nodes.abundance[counter];
 			counter++;
 		} while(counter-1<nodes.nnodes);
 	}
 //int mind,offset;
 
-	bool clusters_computed=makeClusters && maxperlevel>0 && links.nlinks>0;
+	bool clusters_computed = makeClusters && maxperlevel>0 && links.nlinks>0;
+//	clusters_computed=false;
 
 	if(clusters_computed) {
 // find clusters with Infomap
@@ -328,6 +363,7 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 		} while(!treeout && count<15);
 
 		int maxid=0;
+		printf("EXPORTING\n# nodes: %d\n", nodes.nnodes);
 		for(j=0;j<nodes.nnodes;j++) {
 			if(nodes.nodes[j]>maxid) maxid=nodes.nodes[j];
 		}
@@ -343,8 +379,11 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 		fprintf(treeout,"*Vertices %d\n",nodes.nnodes);
 		for(j=0;j<nodes.nnodes;j++) {
 			fprintf(treeout,"%d \"%d\"\n",j+1,dist->IDs[nodes.nodes[j]]);
+			//printf("%d \"%d\"\n",j+1,dist->IDs[nodes.nodes[j]]);
 			dic[nodes.nodes[j]]=j+1;
 		}
+		
+		int k, srcab, tarab;
 		fprintf(treeout,"*Edges %d\n",links.nlinks);
 		for(j=0;j<links.nlinks;j++) {
 			if(!dic[links.links[j].srcid]) {
@@ -354,11 +393,24 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 				clusters_computed=false;
 				goto abort;
 			}
-			fprintf(treeout,"%d %d %f\n",dic[links.links[j].srcid],dic[links.links[j].tarid],links.links[j].dist);
+			
+			for(k=0, srcab=0, tarab=0; k<nodes.nnodes; k++) {		// search for the abundances of the two participating nodes
+				if(nodes.nodes[k] == links.links[j].srcid) {
+					srcab = nodes.abundance[k];
+					if(tarab) break;
+				}
+				if(nodes.nodes[k] == links.links[j].tarid) {
+					tarab = nodes.abundance[k];
+					if(srcab) break;
+				}
+			}
+			links.links[j].similarity = (float)(srcab + tarab) / 2;
+			fprintf(treeout,"%d %d %f\n", dic[links.links[j].srcid], dic[links.links[j].tarid], links.links[j].similarity);
+			//printf("%d_%d %d_%d Simi: %f\n", links.links[j].srcid, dic[links.links[j].srcid], links.links[j].tarid, dic[links.links[j].tarid], links.links[j].similarity);
 		}
 		fclose(treeout);
 		free(dic);
-
+//fflush(stdout);
 //		int ret=system("/home/miguel/Infomap/Infomap '/home/miguel/workspace/ecoSpace/jni/tree.pajek' -ipajek /home/miguel/workspace/ecoSpace/jni --directed --tree");
 		char cmdbuf[100];
 		sprintf(cmdbuf,"./Infomap '%s' -ipajek /tmp -N2 --directed --tree",template2);
@@ -425,10 +477,11 @@ for(k=0;k<dist->ntaxa;k++) {
 				,clusters_computed ? flow[j] : 0
 				,nodes.nodes[j]);*/
 
-			sprintf(buf,"{\"id\":%d,\"nrec\":%d,\"lev\":%d,\"ori\":%d,\"cls\":[%s],\"flow\":%f},"
+			sprintf(buf,"{\"id\":%d,\"nrec\":%d,\"lev\":%d,\"abund\":%d,\"ori\":%d,\"cls\":[%s],\"flow\":%f},"
 				,dist->IDs[nodes.nodes[j]]
 				,dist->freqs[nodes.nodes[j]]
 				,nodes.level[j]
+				,nodes.abundance[j]
 				,nodes.level[j]==0 ? 1 : 0
 				,clusters_computed ? (char*)&cluster[j*CLUSTERBUFSIZE] : ""
 				,clusters_computed ? flow[j] : 0);
@@ -449,7 +502,12 @@ for(k=0;k<dist->ntaxa;k++) {
 			strcat(out,"],\"links\":[");	// FIXME: should test buffer size here too
 	
 			for(j=0;j<links.nlinks;j++) {
-				sprintf(buf,"{\"sourceid\":%d,\"targetid\":%d,\"wei\":%f,\"bi\":%d},",dist->IDs[links.links[j].srcid],dist->IDs[links.links[j].tarid],links.links[j].dist,links.links[j].bidirectional ? 1 : 0);
+				sprintf(buf,"{\"sourceid\":%d,\"targetid\":%d,\"wei\":%f,\"bi\":%d},"
+					, dist->IDs[links.links[j].srcid]
+					, dist->IDs[links.links[j].tarid]
+					, links.links[j].similarity
+					, links.links[j].bidirectional ? 1 : 0);
+					
 				if(strlen(out)+strlen(buf)>=outBufferSize) {
 					outBufferSize+=100000;
 					if((tmppointer=realloc(out,outBufferSize)))
@@ -465,8 +523,10 @@ for(k=0;k<dist->ntaxa;k++) {
 
 	result = (*env)->NewStringUTF(env,out);
 	(*env)->ReleaseIntArrayElements(env, taxID, tid, 0);
+	(*env)->ReleaseIntArrayElements(env, abund, tab, 0);
 	if(clusters_computed) free(cluster);
 	free(nodes.nodes);
+	free(nodes.abundance);
 	free(nodes.level);
 	free(links.links);
 	free(distance);

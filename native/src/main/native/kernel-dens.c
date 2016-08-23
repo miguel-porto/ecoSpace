@@ -5,8 +5,8 @@
 #include "tiff-4.0.3/libtiff/tiffio.h"
 #include "econav.h"
 
-#define MAXMEMORYPERBATCH	100L<<20		// we allow 100 Mb of memory to be occupied by each analysed batch
-#define MAXSIDE				500			// but we never allow a grid larger than 500 cells
+#define MAXMEMORYPERBATCH	2000L<<20		// we allow 100 Mb of memory to be occupied by each analysed batch
+#define MAXSIDE				1000			// but we never allow a grid larger than 500 cells
 //#define VERBOSE
 
 void saveKernelDensity(float *src,int nrecs,DENSITY *dst);

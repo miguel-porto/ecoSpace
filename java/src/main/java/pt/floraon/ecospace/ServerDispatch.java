@@ -96,6 +96,7 @@ public class ServerDispatch implements Runnable{
     
     @SuppressWarnings("unchecked")
 	public void run() {
+    	Process pr;
     	Dataset ds;
     	String dID,aID,tmp,query,queryType;
     	
@@ -275,13 +276,14 @@ public class ServerDispatch implements Runnable{
     			out.print(response.toString());*/
     			out.println(datasetServer.GetDatasets());
     			break;
-    			
+    		
     		case "getdatasetdetails":
     			if(qs.size()==0) out.println("You must supply the dataset ID. Example:\ngetdatasetdetails?did=65d"); else {
     				dID=getQSValue("did",qs);
     				ds=datasetServer.datasets.get(dID);
     				if(ds!=null) {
     					jobj=new JSONObject();
+    					jobj.put("success",true);
     					jobj.put("numspec", ds.taxonNames.size());
     					jobj.put("desc", ds.getDescription());
     					jobj.put("origin", ds.getOrigin());
@@ -414,7 +416,121 @@ public class ServerDispatch implements Runnable{
     				break;
     			}
     			break;
-    		case "open":	// make new analysis (if it doesn't exist already)
+
+    		case "testfile":
+    			Map<Integer, Integer> taxonids1=new HashMap<Integer, Integer> ();
+    			dID=nativeFunctions.getQSValue("did",qs);
+    			String file=nativeFunctions.getQSValue("sl",qs);		// this is the file name where the species list is stored (under ./uploads)
+    			LocalFileQueryService lfqs=new LocalFileQueryService(file);
+    			Map<String, Integer> query1=lfqs.executeQuery();
+    			ds=datasetServer.datasets.get(dID);
+    			if(ds==null) {
+    				out.println(error("No such dataset"));
+    				break;
+    			}
+				taxonids1=ds.taxonNames.parseQuery(query1);
+    			out.println(success(taxonids1.size()+" species found out of "+query1.size()));
+    			break;
+
+    		case "exportvariables":
+    			dID = getQSValue("did",qs);
+    			ds = datasetServer.datasets.get(dID);
+    			if(ds == null) {out.println(error("Dataset not found.","page"));break;}
+    			String table = nativeFunctions.exportExtractedVariables(dID);
+    			BufferedReader tabbuf = new BufferedReader(new FileReader(new File(table)));
+    			BufferedWriter outtab = new BufferedWriter(new FileWriter(new File(table+"_out")));
+    			String line1;
+    			String[] fields;
+    			line1 = tabbuf.readLine();		// this is the header
+    			fields = line1.split("\t");
+    			outtab.write("taxon\tID\tlatitude\tlongitude");
+    			
+    			for(Dataset.Variable va : ds.Variables) {
+    				outtab.write("\t" + va.abbrev);
+    			}
+    			outtab.write("\n");
+
+    			while((line1 = tabbuf.readLine()) != null) {
+    				fields = line1.split("\t");
+    				outtab.write(ds.taxonNames.get(Integer.parseInt(fields[0])));
+    				for(String s : fields) {
+    					outtab.write("\t" + s);
+    				}
+    				outtab.write("\n");
+    			};
+    			
+    			tabbuf.close();
+    			outtab.close();
+
+    			HttpResponse res2 = new BasicHttpResponse(new BasicStatusLine(new ProtocolVersion("HTTP",1,1),200,""));
+				out = new PrintWriter(new OutputStreamWriter(ostr, StandardCharsets.UTF_8), true);
+				res2.addHeader(new BasicHeader("Content-Type:","text/plain"));
+    			out.print(res2.toString()+"\r\n");
+    			out.print("\r\n");
+    			out.flush();
+    			IOUtils.copy(new FileInputStream(new File(table+"_out")), ostr);
+    			out.close();
+    			//out.println(success(table+"_out"));
+    			return;
+    			
+    		case "distdownload":
+    			dID=getQSValue("did",qs);
+				aID=getQSValue("aid",qs);
+				if(datasetServer.getNDistanceDownloads()>0) {out.println(error("ecoSpace server is too busy at the moment. Please try again later. You can hit F5 to refresh this page, it will start downloading your requested file when ready.","page"));break;}
+				ds=datasetServer.datasets.get(dID);
+				if(ds==null) {out.println(error("Dataset not found.","page"));break;}
+				Analysis an=ds.analyses.get(aID);
+				if(an==null) {out.println(error("Analysis not found.","page"));break;}
+				// this writes two temp files, one with the distnace matrix itself, other with the species IDs that correspond
+
+				datasetServer.pushDistanceDownload();
+				String distmat=an.downloadDistanceMatrix();
+				String idfile=distmat.replace("/dist", "/idfi");
+				String spfile=distmat.replace("/dist", "/spfi");
+				String rdatafile="/tmp/distances_"+distmat.substring(distmat.length()-6)+".rdata";
+				BufferedWriter bwsp=new BufferedWriter(new FileWriter(new File(spfile)));
+				BufferedReader brid=new BufferedReader(new FileReader(new File(idfile)));
+				for(String ids:brid.readLine().split("\t")) {
+					if(Integer.parseInt(ids)<0)
+						bwsp.write("NA\n");
+					else
+						bwsp.write(ds.taxonNames.get(Integer.parseInt(ids))+"\n");
+				}
+				brid.close();
+				bwsp.close();
+				// convert the text files into an Rdata file
+				pr = null;
+				try {
+					pr = Runtime.getRuntime().exec(new String[] {"R", "-e","a=read.table('"+spfile+"',sep='\\t',strings=F)[,1]; b=as.matrix(read.table('"+distmat+"' ,h=F,sep='\\t'))/254; colnames(b)=a; rownames(b)=a; distances=as.dist(b); save(distances,file='"+rdatafile+"')"});
+					pr.waitFor();
+				} catch (IOException | InterruptedException e) {
+					datasetServer.popDistanceDownload();
+					e.printStackTrace();
+					break;
+				} finally {
+					if(pr != null) {
+						IOUtils.closeQuietly(pr.getInputStream());
+						IOUtils.closeQuietly(pr.getOutputStream());
+						IOUtils.closeQuietly(pr.getErrorStream());
+						pr.destroy();
+					}
+				}
+				
+				FileInputStream fis=new FileInputStream(new File(rdatafile));
+				try {
+					IOUtils.copy(fis, ostr);
+				} catch(SocketException e) {
+					e.printStackTrace();
+				}
+				datasetServer.popDistanceDownload();
+				fis.close();
+				Files.delete(Paths.get(rdatafile));
+				Files.delete(Paths.get(idfile));
+				Files.delete(Paths.get(spfile));
+				Files.delete(Paths.get(distmat));
+    			break;
+
+    		case "open":	// make new analysis (if it doesn't exist already) and return the analysis ID
     			if(qs.size()==0) out.println(error("You must supply the dataset dataset ID and the variables to analyse. Example:\nopen?id=65d79c6083&v=0,1,2&min=100&sig=0.02")); else {
     				dID=getQSValue("did",qs);
     				String v=getQSValue("v",qs);
@@ -443,70 +559,8 @@ public class ServerDispatch implements Runnable{
     			}
     			break;
     			
-    		case "testfile":
-    			Integer[] taxonids1=new Integer[0];
-    			dID=nativeFunctions.getQSValue("did",qs);
-    			String file=nativeFunctions.getQSValue("sl",qs);		// this is the file name where the species list is stored (under ./uploads)
-    			LocalFileQueryService lfqs=new LocalFileQueryService(file);
-    			String[] query1=lfqs.executeQuery();
-    			ds=datasetServer.datasets.get(dID);
-    			if(ds==null) {
-    				out.println(error("No such dataset"));
-    				break;
-    			}
-				taxonids1=ds.taxonNames.parseQuery(query1).toArray(taxonids1);
-    			out.println(success(taxonids1.length+" species found out of "+query1.length));
-    			break;
-    			  			
-    		case "distdownload":
-    			dID=getQSValue("did",qs);
-				aID=getQSValue("aid",qs);
-				if(datasetServer.getNDistanceDownloads()>0) {out.println(error("ecoSpace server is too busy at the moment. Please try again later. You can hit F5 to refresh this page, it will start downloading your requested file when ready.","page"));break;}
-				ds=datasetServer.datasets.get(dID);
-				if(ds==null) {out.println(error("Dataset not found.","page"));break;}
-				Analysis an=ds.analyses.get(aID);
-				if(an==null) {out.println(error("Analysis not found.","page"));break;}
-				// this writes two temp files, one with the distnace matrix itself, other with the species IDs that correspond
-				datasetServer.pushDistanceDownload();
-				String distmat=an.downloadDistanceMatrix();
-				String idfile=distmat.replace("/dist", "/idfi");
-				String spfile=distmat.replace("/dist", "/spfi");
-				String rdatafile="/tmp/distances_"+distmat.substring(distmat.length()-6)+".rdata";
-				BufferedWriter bwsp=new BufferedWriter(new FileWriter(new File(spfile)));
-				BufferedReader brid=new BufferedReader(new FileReader(new File(idfile)));
-				for(String ids:brid.readLine().split("\t")) {
-					if(Integer.parseInt(ids)<0)
-						bwsp.write("NA\n");
-					else
-						bwsp.write(ds.taxonNames.get(Integer.parseInt(ids))+"\n");
-				}
-				brid.close();
-				bwsp.close();
-				// convert the text files into an Rdata file
-				try {
-					Process pr=Runtime.getRuntime().exec(new String[] {"R", "-e","a=read.table('"+spfile+"',sep='\\t',strings=F)[,1]; b=as.matrix(read.table('"+distmat+"' ,h=F,sep='\\t'))/254; colnames(b)=a; rownames(b)=a; distances=as.dist(b); save(distances,file='"+rdatafile+"')"});
-					pr.waitFor();
-				} catch (IOException | InterruptedException e) {
-					datasetServer.popDistanceDownload();
-					e.printStackTrace();
-					break;
-				}
-				FileInputStream fis=new FileInputStream(new File(rdatafile));
-				try {
-					IOUtils.copy(fis, ostr);
-				} catch(SocketException e) {
-					e.printStackTrace();
-				}
-				datasetServer.popDistanceDownload();
-				fis.close();
-				Files.delete(Paths.get(rdatafile));
-				Files.delete(Paths.get(idfile));
-				Files.delete(Paths.get(spfile));
-				Files.delete(Paths.get(distmat));
-    			break;
-    			
     		case "get":		// query one analysis
-    			if(qs.size()==0) out.println("You must supply the dataset dataset ID and the variables to analyse. Example:\nopen?id=65d79c6083&v=0,1,2&min=100&sig=0.02"); else {
+    			if(qs.size()==0) out.println("You must supply the dataset dataset ID and the variables to analyse. Example:\nopen?id=65d&v=0,1,2&min=100&sig=0.02"); else {
     				dID=getQSValue("did",qs);
     				aID=getQSValue("aid",qs);
     				query=getQSValue("q",qs);	// this is a query that is sent as is to an external web service or local file
@@ -519,8 +573,8 @@ public class ServerDispatch implements Runnable{
     				String fmt=getQSValue("fmt",qs);
     				if(fmt==null) fmt="json"; else fmt=fmt.toLowerCase();
     				boolean loadSecondary=(tmp2==null ? false : (tmp2.equals("0") ? false : true));
-    				Integer[] taxonids=new Integer[0];
-    				String[] processedQuery=null;
+    				Map<Integer, Integer> taxonids=new HashMap<Integer, Integer>();
+    				Map<String, Integer> processedQuery=null;
     				if(dID==null || aID==null || query==null) {out.println(error("You must supply all four parameters: did, aid and q.",fmt));break;}
     				if(nnei==null) nnei="8";
     				if(nlev==null) nlev="1";
@@ -539,10 +593,10 @@ public class ServerDispatch implements Runnable{
     				
     				processedQuery=qserv.executeQuery();
 
-    				if(fmt.equals("html") && processedQuery.length>1) {out.println("<p style=\"visibility:hidden\">Requests in HTML format must be single-species queries.</p>");break;}
+    				if(fmt.equals("html") && processedQuery.size()>1) {out.println("<p style=\"visibility:hidden\">Requests in HTML format must be single-species queries.</p>");break;}
 
-    				taxonids=ds.taxonNames.parseQuery(processedQuery).toArray(taxonids);
-					if(taxonids.length==0) {
+    				taxonids = ds.taxonNames.parseQuery(processedQuery);
+					if(taxonids.size() == 0) {
 						out.println(error("Query returned no results.",fmt));
 						break;
 					}
@@ -629,7 +683,7 @@ public class ServerDispatch implements Runnable{
 						BufferedWriter bwigrp=new BufferedWriter(new FileWriter(edgetmpfile));
 						BufferedWriter bwwei=new BufferedWriter(new FileWriter(weitmpfile));
 						BufferedWriter bwvert=new BufferedWriter(new FileWriter(verttmpfile));
-						
+
 						links=(JSONArray) jobj.get("links");
 						for(Object o:links) {
 							tmpo=(JSONObject)o;
@@ -653,24 +707,41 @@ public class ServerDispatch implements Runnable{
 						bwwei.close();
 						bwvert.close();
 						// convert the text files into an Rdata file
+						pr = null;
 						try {
-							Process pr=Runtime.getRuntime().exec(new String[] {"R", "-e",""
+							pr = Runtime.getRuntime().exec(new String[] {"R", "-e",""
 									+ "library(igraph);"
 									+ "a=read.table('"+edgetmpfile.getPath()+"',sep='\\t',strings=F)[,1];"
 									+ "b=read.table('"+weitmpfile.getPath()+"',sep='\\t',strings=F)[,1];"
 									+ "c=read.table('"+verttmpfile.getPath()+"',sep='\\t',strings=F);"
 									+ "graph=make_graph(a);"
 									+ "graph=set_edge_attr(graph,'weight',value=b);"
-									+ "ind=V(graph)[match(c[,1],names(V(graph)))];"
+									+ "mat=match(c[,1],names(V(graph)));"
+									+ "c=c[!is.na(mat),];"
+									+ "mat=mat[!is.na(mat)];"
+									+ "ind=V(graph)[mat];"
 									+ "graph=set_vertex_attr(graph,'PageRank', index=ind,value=c[,2]);"
 									+ "graph=set_vertex_attr(graph,'Clusters', index=ind,value=c[,4]);"
 									+ "graph=set_vertex_attr(graph,'InList', index=ind,value=c[,3]);"
 									+ "save(graph,file='"+rdatatmpfile.getPath()+"');"});
+							IOUtils.toString(pr.getInputStream());
+							IOUtils.toString(pr.getErrorStream());
 							pr.waitFor();
 						} catch (IOException | InterruptedException e) {
 							e.printStackTrace();
 							break;
+						} finally {
+							if(pr != null) {
+								/*pr.getInputStream().close();
+								pr.getOutputStream().close();
+								pr.getErrorStream().close();*/
+								IOUtils.closeQuietly(pr.getInputStream());
+								IOUtils.closeQuietly(pr.getOutputStream());
+								IOUtils.closeQuietly(pr.getErrorStream());
+								pr.destroy();
+							}
 						}
+						
 						Files.delete(edgetmpfile.toPath());
 						Files.delete(weitmpfile.toPath());
 						Files.delete(verttmpfile.toPath());
@@ -680,6 +751,7 @@ public class ServerDispatch implements Runnable{
 						} catch(SocketException e) {
 							e.printStackTrace();
 						}
+						fis1.close();
 						Files.delete(rdatatmpfile.toPath());
 						break;
 					default:
@@ -786,14 +858,21 @@ public class ServerDispatch implements Runnable{
 				}
     			
 				String tids=(tquery.equals("all") ? null : tquery.replace(","," "));
-    			Process pr;
+    			pr = null;
     			try {
     				//pr=Runtime.getRuntime().exec("/home/miguel/workspace/ecoSpace/jni/get-density-png data/stdvars_"+dID+".bin "+wid+" "+hei+" "+varsc[0]+" "+varsc[1]+" "+margin+" "+sigmapercent+" "+red+" "+green+" "+blue+" "+ncl+" "+tids);
-    				pr=Runtime.getRuntime().exec(System.getProperty("user.dir")+"/get-density-png data/stdvars_"+dID+".bin "+wid+" "+hei+" "+varsc[0]+" "+varsc[1]+" "+margin+" "+sigmapercent+" "+red+" "+green+" "+blue+" "+ncl+(tids==null ? "" : " "+tids));
+    				pr = Runtime.getRuntime().exec(System.getProperty("user.dir")+"/get-density-png data/stdvars_"+dID+".bin "+wid+" "+hei+" "+varsc[0]+" "+varsc[1]+" "+margin+" "+sigmapercent+" "+red+" "+green+" "+blue+" "+ncl+(tids==null ? "" : " "+tids));
     				IOUtils.copy(pr.getInputStream(), ostr);
     			} catch (IOException e) {
     				e.printStackTrace();
-    			}
+    			} finally {
+					if(pr != null) {
+						IOUtils.closeQuietly(pr.getInputStream());
+						IOUtils.closeQuietly(pr.getOutputStream());
+						IOUtils.closeQuietly(pr.getErrorStream());
+						pr.destroy();
+					}
+				}
     			break;
     			
     		case "distrmap":	// outputs a full SVG with map and density
@@ -847,10 +926,10 @@ public class ServerDispatch implements Runnable{
 							break;
 						}
 		
-		    			Integer[] tids1=new Integer[0];
-		    			tids1=ds.taxonNames.parseQuery(qserv1.executeQuery()).toArray(tids1);
-		    			if(tids1.length<1) error="Query returned no results.";
-		    			tmp2=Arrays.toString(tids1);
+		    			Map<Integer, Integer> tids1=new HashMap<Integer, Integer>();
+		    			tids1=ds.taxonNames.parseQuery(qserv1.executeQuery());
+		    			if(tids1.size()<1) error="Query returned no results.";
+		    			tmp2=Arrays.toString(tids1.keySet().toArray(new String[0]));
 	    			}
 	
 	    			minlat=ds.Variables.get(0).min;
@@ -896,7 +975,7 @@ public class ServerDispatch implements Runnable{
     				if(inlineStyles!=null && inlineStyles.equals("1")) {	// TODO: this is partly redundant with the code under "png" option
     					out.print("<image x=\""+imgx+"\" y=\""+(-imgy)+"\" width=\""+imgwid+"\" height=\""+imghei+"\" xlink:href=\"data:image/png;base64,");
     					out.flush();
-    	    			Process pr1;
+    	    			Process pr1 = null;
     	    			Base64InputStream b64is;	// to base64 encode the PNG to put in the SVG inline
     	    			try {
     	    				pr1=Runtime.getRuntime().exec(System.getProperty("user.dir")+"/get-density-png data/stdvars_"+dID+".bin "+nwid+" "+nhei+" "+varsc[0]+" "+varsc[1]+" "+margin+" "+sigma+" "+red+" "+green+" "+blue+" "+nclasses+" "+tmp2.substring(1, tmp2.length()-1).replace(" ", "").replace(",", " "));
@@ -905,7 +984,14 @@ public class ServerDispatch implements Runnable{
     	    				b64is.close();
     	    			} catch (IOException e) {
     	    				e.printStackTrace();
-    	    			}
+    	    			} finally {
+							if(pr1 != null) {
+								IOUtils.closeQuietly(pr1.getInputStream());
+								IOUtils.closeQuietly(pr1.getOutputStream());
+								IOUtils.closeQuietly(pr1.getErrorStream());
+								pr1.destroy();
+							}
+						}
     	    			out.print("\"/>");
     	    			out.flush();
     				} else {
@@ -957,7 +1043,7 @@ public class ServerDispatch implements Runnable{
     				}
     			}
 
-    			Integer[] tids2=new Integer[0];
+    			Map<Integer, Integer> tids2=new HashMap<Integer, Integer>();
     			if(query!=null && ds!=null) {
 	    			QueryService qserv2=null;
 					try {
@@ -965,11 +1051,11 @@ public class ServerDispatch implements Runnable{
 					} catch (IOException e) {
 						error=e.getMessage();
 					}
-	    			tids2=ds.taxonNames.parseQuery(qserv2.executeQuery()).toArray(tids2);
+	    			tids2=ds.taxonNames.parseQuery(qserv2.executeQuery());
 	    			//if(tids2.length<1) error="Query returned no results.";
     			}
     			
-    			ScatterPlot spl=new ScatterPlot(ds,tids2,wid2,hei2,color,varsc1,sigmapercent1,nclasses==null ? null : Integer.parseInt(nclasses),error);
+    			ScatterPlot spl=new ScatterPlot(ds,tids2.keySet().toArray(new Integer[0]),wid2,hei2,color,varsc1,sigmapercent1,nclasses==null ? null : Integer.parseInt(nclasses),error);
     			if(path[1].equals("scatterlayer")) {
     				if(ind!=null) {
     					String[] colinds=ind.split(",");
@@ -980,7 +1066,7 @@ public class ServerDispatch implements Runnable{
     						colind=new Integer[colinds.length];
     						for(int i1=0;i1<colinds.length;i1++) colind[i1]=Integer.parseInt(colinds[i1]);
     					}
-    					if(tids2.length==0)
+    					if(tids2.size()==0)
     						out.println("[]");
     					else
     						out.println(spl.getLayerJSON(colind));
