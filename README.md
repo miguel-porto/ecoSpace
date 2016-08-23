@@ -1,4 +1,7 @@
 # ecoSpace-server
+
+[![ecoSpace 4-minute tour](https://img.youtube.com/vi/dHiWDriDInk/0.jpg)](https://www.youtube.com/watch?v=dHiWDriDInk)
+
 [ecoSpace](http://www.flora-on.pt/ecospace) is an online tool to interactively assemble, explore and analyse species ecological networks, where species relationships are inferred from plain species occurrence data.
 It is targeted at revealing the biogeographic structure underlying species assemblages.
 ecoSpace-server is the Java server that does all the computations necessary for assembling species networks:
