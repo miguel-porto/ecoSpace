@@ -27,6 +27,15 @@ JNIEXPORT jlong JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeDistance
 	size_t dummy;
 	FILE *densfile,*outfile;
 	
+	{	// redirect stdout to file
+		int fd;
+		fpos_t pos;
+		fflush(stdout);
+		fgetpos(stdout, &pos);
+		fd = dup(fileno(stdout));
+		FILE *dummy=freopen("logfile.txt", "a", stdout);
+	}
+
 	densfile=fopen(DENSITYFILE(puid,panuid),"r");
 	if(!densfile) return 0;
 	dummy=fread(&ntaxa,sizeof(int),1,densfile);
@@ -62,8 +71,11 @@ JNIEXPORT jlong JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeDistance
 	tmp1=malloc(arraysize*sizeof(float));
 	int counter=0;
 	for(i=0;i<ntaxa;i++) {
+printf("Taxon %d, max density %f\n",i,densities[i].max);
 		if(densities[i].max<0 || IDs[i]==-1) {	// if this taxon has no kernel density (because of NAs)
-			for(j=i;j<ntaxa;j++) distances[i+j*ntaxa]=NA_DISTANCE;
+			for(j=i;j<ntaxa;j++) distances[i+j*ntaxa] = NA_DISTANCE;
+			#pragma omp atomic
+			counter += (ntaxa-i);
 			continue;
 		}
 		for(k=0;k<arraysize;k++)
@@ -75,12 +87,14 @@ JNIEXPORT jlong JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeDistance
 			#pragma omp for
 			for(j=i;j<ntaxa;j++) {
 				if(densities[j].max<0 || IDs[j]==-1) {	// if this taxon has no kernel density (because of NAs)
-					distances[i+j*ntaxa]=NA_DISTANCE;
+					distances[i+j*ntaxa] = NA_DISTANCE;
+					#pragma omp atomic
+					counter++;
 					continue;
 				}
 				v=0;
 				for(k=0,pd2=densities[j].density;k<arraysize;k++,pd2++) {
-					tmp2=(float)(*pd2)*densities[j].max/((float)MAXDENSITY*densities[j].sum);
+					tmp2=(float)(*pd2) * densities[j].max / ((float)MAXDENSITY * densities[j].sum);
 //			printf("%f : %f ",tmp1[k]*1000,tmp2*1000);
 					v+=(tmp1[k]<tmp2 ? tmp1[k] : tmp2);			
 				}

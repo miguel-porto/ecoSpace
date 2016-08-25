@@ -5,8 +5,8 @@
 #include "tiff-4.0.3/libtiff/tiffio.h"
 #include "econav.h"
 
-#define MAXMEMORYPERBATCH	2000L<<20		// we allow 100 Mb of memory to be occupied by each analysed batch
-#define MAXSIDE				1000			// but we never allow a grid larger than 500 cells
+#define MAXMEMORYPERBATCH	2000L<<20		// we allow 2 Gb of memory to be occupied by each analysed batch
+#define MAXSIDE				1000			// but we never allow a grid larger than 1000 cells
 //#define VERBOSE
 
 void saveKernelDensity(float *src,int nrecs,DENSITY *dst);
@@ -43,7 +43,16 @@ JNIEXPORT jint JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeKernelDen
 	dummy=fread(&nvars,sizeof(int),1,varsfile);
 //	fseek(varsfile,nvars*sizeof(tmp.filename)+sizeof(long)*ntaxa,SEEK_CUR);
 	fseek(varsfile,sizeof(long)*ntaxa,SEEK_CUR);	// skip index
-	
+
+	{	// redirect stdout to file
+		int fd;
+		fpos_t pos;
+		fflush(stdout);
+		fgetpos(stdout, &pos);
+		fd = dup(fileno(stdout));
+		FILE *dummy=freopen("logfile.txt", "a", stdout);
+	}
+
 
 	vararray=malloc(nvarstouse*nrecs*sizeof(VARIABLE));
 	varheader=malloc(nvarstouse*sizeof(VARIABLEHEADER));
@@ -68,12 +77,12 @@ JNIEXPORT jint JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeKernelDen
 	for(i=0;i<ntaxa;i++) fprintf(freqfile,"%d\n",freqs[i]);
 	fclose(freqfile);
 // count the # of taxa after filtering out rarest	
-	for(i=0;i<ntaxa;i++) if(freqs[i]>=freqthresh) ntaxafiltered++;
+	for(i=0;i<ntaxa;i++) if(freqs[i] >= freqthresh) ntaxafiltered++;
 // create a mapping of IDs: because some IDs were removed, make them sequential without holes (remember that memory is the limiting factor here!)
 	mapIDs=malloc(ntaxa*sizeof(int));
 	for(i=0;i<ntaxa;i++) mapIDs[i]=-1;
 	for(i=0,j=0;i<nrecs;i++) {
-		if(freqs[pIDs[i]]>=freqthresh) {
+		if(freqs[pIDs[i]] >= freqthresh) {
 			if(mapIDs[pIDs[i]]==-1) {
 				mapIDs[pIDs[i]]=j;
 				j++;
@@ -359,7 +368,8 @@ void saveKernelDensity(float *src,int nrecs,DENSITY *dst) {
 		dst->density[i]=(unsigned char)(src[i]*MAXDENSITY/max);
 		sum+=dst->density[i]*max/(float)MAXDENSITY;
 	}
-	dst->max=(max < 0.0001 ? -1 : max);
+	dst->max=(max < 0.0000001 ? -1 : max);
 	dst->sum=sum;
-//if(max<0.01) printf("max %f sum %f\n",max,dst->sum);
+	
+	if(max<0.0000001) printf("Discarded density with max %f and sum %f\n", max, dst->sum);
 }

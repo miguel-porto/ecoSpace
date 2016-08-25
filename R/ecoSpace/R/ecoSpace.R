@@ -73,10 +73,15 @@ get.datasets<-function() {
 }
 
 get.dataset.variables <- function(dataset) {
+	to = options("timeout")
+	
+	options(timeout=600)
 	a = read.table(paste("http://localhost:7520/exportvariables?did=", dataset, sep=""), row.names=NULL, header=TRUE, sep="\t", stringsAsFactors=FALSE)
+	options(timeout=to)
+	
 	b = a[,5:dim(a)[2]]
-	b[b==-1] = NA
-	a[,5:dim(a)[2]] = b
+	b[b == -1] = NA
+	a[, 5:dim(a)[2]] = b
 	return(a)
 }
 
@@ -130,7 +135,7 @@ new.dataset<-function(data,description=NULL) {
 				,decimalLongitude=data[,"longitude"]
 			)
 		},"dwc"={
-			dwc=data
+			dwc=data[,colsDWC]
 		},"error"={
 			stop( paste("Data frame must either have the columns ",paste(colsSimp,collapse=", ")," OR ",paste(colsDWC,collapse=", "),sep="") )
 		}

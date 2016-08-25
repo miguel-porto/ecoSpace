@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <math.h>
 #define SQRT2PI				2.506628f
-#define DISCARDKERNELTHRESH	0.0005
+#define DISCARDKERNELTHRESH	0.00005
 
 float* buildKernel(int side,float sigma,int dimension,int *outkernelhalfside,int *outkernelside,int *outkernelsidesq) {
 // compute the n-dimensional gaussian kernel with the same side
