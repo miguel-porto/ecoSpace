@@ -1,5 +1,5 @@
 # mvn clean package
-setClass("eSnetwork",slots=c("dataset"="character","analysis"="character","query"="ANY","nneighbors"="numeric","nlevels"="numeric","querytype"="character"))
+setClass("eSnetwork",slots=c("dataset"="character","network"="character","query"="ANY","nneighbors"="numeric","nlevels"="numeric","querytype"="character"))
 
 .onLoad<-function(libname,pkgname) {
 	assign(".Last",function() {
@@ -41,7 +41,7 @@ start.server<-function() {
 		flush.console()
 		Sys.sleep(0.5)
 	}
-	cat(" server ready!\nExisting analyses:\n\n")
+	cat(" server ready!\nExisting networks:\n\n")
 	print(get.datasets())
 }
 
@@ -72,6 +72,17 @@ get.datasets<-function() {
 	}
 }
 
+delete.all.datasets <- function(sure = FALSE) {
+	if(!sure) {
+		resp = readline("Are you sure you want to delete all datasets and networks (y/n)? ")
+		if(resp == "y" || resp == "Y") sure = TRUE
+	}
+	
+	if(sure) {
+		fromJSON(getURL("localhost:7520/empty"))
+	}
+}
+
 get.dataset.variables <- function(dataset) {
 	to = options("timeout")
 	
@@ -95,7 +106,7 @@ get.dataset.details<-function(dataset) {
 	}
 }
 
-get.analyses<-function(dataset) {
+get.networks<-function(dataset) {
 	testServer(TRUE)
 	res=fromJSON(getURL(paste("localhost:7520/getanalyses?did=",dataset,sep="")))
 	if(!res$success) {
@@ -162,7 +173,7 @@ new.network <- function(dataset, variables=c("latitude","longitude"), minFreq=5,
 	if(!res$success) {
 		stop(res$msg)
 	} else {
-		nw=get.network(dataset=dataset,analysis=res$msg)
+		nw=get.network(dataset=dataset, network=res$msg)
 		if(!async)
 			wait.for.network(nw)
 		else
@@ -171,11 +182,11 @@ new.network <- function(dataset, variables=c("latitude","longitude"), minFreq=5,
 	}
 }
 
-get.network<-function(dataset,analysis,query=NULL,nneighbors=NULL,nlevels=NULL,queryType=c("i","json")[1]) {
-	out=new("eSnetwork",dataset=dataset,analysis=analysis,query=query
-		,nneighbors=ifelse(is.null(nneighbors),8,nneighbors)
-		,nlevels=ifelse(is.null(nlevels),1,nlevels)
-		,querytype=queryType
+get.network<-function(dataset, network, query=NULL, nneighbors=8, nlevels=1, queryType=c("i","json")[1]) {
+	out=new("eSnetwork", dataset=dataset, network=network, query=query
+		,nneighbors = nneighbors
+		,nlevels = nlevels
+		,querytype = queryType
 		)
 	return(out)
 }
@@ -235,7 +246,7 @@ setMethod("print", signature(x="eSnetwork"),function(x) show(x))
 		query="all"
 	else
 		query=from@query
-	url=paste("localhost:7520/get?q=", curlEscape(query), "&sec=1&nn=", from@nneighbors, "&lev=", from@nlevels, "&t=", from@querytype,"&fmt=igraph&did=", from@dataset, "&aid=", from@analysis,sep="")
+	url=paste("localhost:7520/get?q=", curlEscape(query), "&sec=1&nn=", from@nneighbors, "&lev=", from@nlevels, "&t=", from@querytype,"&fmt=igraph&did=", from@dataset, "&aid=", from@network,sep="")
 	#cat("Fetching: ", url,"\n")
 	content=getBinaryURL(url)
 		
@@ -254,14 +265,14 @@ asJSON<-function(from) {
 		query="all"
 	else
 		query=from@query
-	content=fromJSON( getURL(paste("localhost:7520/get?q=",curlEscape(query),"&sec=1&nn=",from@nneighbors,"&lev=",from@nlevels, "&t=", from@querytype,"&fmt=json&did=",from@dataset,"&aid=",from@analysis,sep="")) )
+	content=fromJSON( getURL(paste("localhost:7520/get?q=",curlEscape(query),"&sec=1&nn=",from@nneighbors,"&lev=",from@nlevels, "&t=", from@querytype,"&fmt=json&did=",from@dataset,"&aid=",from@network,sep="")) )
 	return(content)
 }
 
 
 .asDist<-function(from) {
 	stopIfNotReady(from)
-	content=getBinaryURL(paste("localhost:7520/distdownload?did=",from@dataset,"&aid=",from@analysis,sep=""))
+	content=getBinaryURL(paste("localhost:7520/distdownload?did=",from@dataset,"&aid=",from@network,sep=""))
 	tmp = tempfile()
 	writeBin(content, con = tmp)
 	load(tmp)
@@ -272,7 +283,7 @@ setAs("eSnetwork","dist",.asDist)
 ## Gets the processing status of the given network
 .get.status<-function(network) {
 	if(!is(network,"eSnetwork")) stop("from must be an object of class eSnetwork")
-	res=fromJSON( getURL(paste("localhost:7520/status/",network@dataset,"/",network@analysis,sep="")) )
+	res=fromJSON( getURL(paste("localhost:7520/status/",network@dataset,"/",network@network,sep="")) )
 	return(res)
 }
 
@@ -287,7 +298,7 @@ stopIfNotReady<-function(network) {
 plot.eSnetwork<-function(object) {
 	stopIfNotReady(object)
 	browseURL(	
-		paste("http://localhost:7520/navigator.html?ds=",object@dataset,"&an=",object@analysis,sep="")
+		paste("http://localhost:7520/navigator.html?ds=",object@dataset,"&an=",object@network,sep="")
 	)
 }
 

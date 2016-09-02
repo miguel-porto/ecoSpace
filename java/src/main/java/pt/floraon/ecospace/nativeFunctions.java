@@ -1,5 +1,6 @@
 package pt.floraon.ecospace;
 
+import java.io.File;
 import java.io.UnsupportedEncodingException;
 import java.net.URLDecoder;
 import java.util.Iterator;
@@ -29,13 +30,20 @@ public class nativeFunctions {
 	 * @param maxperlevel	Number of neighbors to load in each expanded level
 	 * @param loadSecondaryLinks	Boolean indicating whether to create relationships between loaded neighbors, or only between target taxa and their direct neighbors
 	 * @param makeClusters	Boolean. Use Infomap to partition the network into clusters?
+	 * @param sampleBased	Boolean. The passed taxon list has true abundances, computed based on samples.
 	 * @return	JSON string ready for d3.js
 	 */
-	static native String getRelationships(long handle,int[] taxID, int[] abundances,int nlevels,int maxperlevel,boolean loadSecondaryLinks,boolean makeClusters);
+	static native String getRelationships(long handle,int[] taxID, int[] abundances,int nlevels,int maxperlevel,boolean loadSecondaryLinks,boolean makeClusters, boolean sampleBased);
 	static native int closeDistanceMatrix(long handle);
 	static native byte[] getDensityPNG();
 	static {
-        System.loadLibrary("ecoSpace-JNI");
+		File dir=new File("../libs");
+		File[] files=dir.listFiles();
+		for(File f:files) {
+			if(f.getName().contains("ecoSpace"))
+				System.load(f.getAbsolutePath());
+		}
+        //System.loadLibrary("ecoSpace");
     }
 	
 	public static int[] toPrimitiveInt(List<Integer> numbers)	{

@@ -247,10 +247,10 @@ public class Dataset {
 		} else return null;
 	}
 
-	public String Query(String aID,Map<Integer, Integer> taxID,int nNeigh,int nLevels,boolean loadSecondaryLinks,boolean makeClusters) throws DatasetException, IOException {
+	public String Query(String aID,Map<Integer, Integer> taxID,int nNeigh,int nLevels,boolean loadSecondaryLinks,boolean makeClusters, boolean sampleBased) throws DatasetException, IOException {
 		Analysis an=this.analyses.get(aID);
 		if(an==null) throw new DatasetException("Analysis "+aID+" not found.");
-		return an.Query(taxID,nNeigh,nLevels,loadSecondaryLinks,makeClusters);
+		return an.Query(taxID,nNeigh,nLevels,loadSecondaryLinks,makeClusters, sampleBased);
 	}
 
 	public void Close() {
@@ -429,7 +429,7 @@ public class Dataset {
 				this.handle=0;
 			} else EcoSpace.outputlog.println("Already closed");
 		}
-		public String Query(Map<Integer, Integer> taxID,int nNeigh,int nLevels,boolean loadSecondaryLinks, boolean makeClusters) throws DatasetException, IOException {
+		public String Query(Map<Integer, Integer> taxID,int nNeigh,int nLevels,boolean loadSecondaryLinks, boolean makeClusters, boolean sampleBased) throws DatasetException, IOException {
 			Iterator<Entry<Integer, Integer>> it = taxID.entrySet().iterator();
 			Entry<Integer, Integer> tmp;
 			int[] tmpIDs = new int[taxID.size()];
@@ -444,7 +444,7 @@ public class Dataset {
 			
 					//nativeFunctions.toPrimitiveInt(Arrays.asList(taxID.keySet().toArray(new Integer[0])));
 			if(this.handle!=0 && this.State==ANALYSISSTATE.READY) {
-				String out=nativeFunctions.getRelationships(this.handle, tmpIDs, tmpAbu, nLevels, nNeigh, loadSecondaryLinks, makeClusters);
+				String out=nativeFunctions.getRelationships(this.handle, tmpIDs, tmpAbu, nLevels, nNeigh, loadSecondaryLinks, makeClusters, sampleBased);
 				if(out==null)
 					throw new IOException("Some error occurred while fetching relations");
 				else

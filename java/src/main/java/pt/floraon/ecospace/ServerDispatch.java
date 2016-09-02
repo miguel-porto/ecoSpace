@@ -604,9 +604,10 @@ public class ServerDispatch implements Runnable{
 					String resp=null;
 
 					try {
-						resp = datasetServer.Query(dID,aID,taxonids
-								,Integer.parseInt(nnei),Integer.parseInt(nlev),loadSecondary
-								,makeClusters==null ? true : makeClusters.equals("1"));	// make clusters by default
+						resp = datasetServer.Query(dID, aID, taxonids
+								, Integer.parseInt(nnei),Integer.parseInt(nlev), loadSecondary
+								, makeClusters==null ? true : makeClusters.equals("1")
+								, queryType.equals("json") ? true : false);	// make clusters by default
 					} catch (NumberFormatException e) {
 						e.printStackTrace();
 						break;
