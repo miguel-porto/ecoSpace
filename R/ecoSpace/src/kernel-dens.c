@@ -135,7 +135,7 @@ JNIEXPORT jint JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeKernelDen
 			for(i=0;i<nrecs;i++) {	// iterate through all records in search for this taxon ACK!! give me an index
 				if(pIDs[i]!=j) continue;
 				for(k=0,skiprec=false;k<nvarstouse;k++) {	// check if any one of the variables is NA. if it is, skip this record
-					if(vararray[i+nrecs*k]==RASTERNODATA) {
+					if(vararray[i+nrecs*k] == RASTERNODATA) {
 						skiprec=true;
 						break;
 					}
@@ -197,8 +197,12 @@ JNIEXPORT jint JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeKernelDen
 			if(anythingtosave) {
 				saveKernelDensity(tmpdens,freqs[j],&densities[mapIDs[j]]);		// save kernel density of previous taxon
 				outIDs[mapIDs[j]]=j;
-			} else outIDs[mapIDs[j]]=-1;
-			anythingtosave=false;
+			} else {
+				saveKernelDensity(NULL, freqs[j], &densities[mapIDs[j]]);		// save kernel density of previous taxon
+				outIDs[mapIDs[j]]=j;
+//				outIDs[mapIDs[j]]=-1;
+			}
+			anythingtosave = false;
 			memset(tmpdens,0,arraysize*sizeof(float));
 			printf(".");
 			fflush(stdout);
@@ -360,15 +364,20 @@ void saveKernelDensity(float *src,int nrecs,DENSITY *dst) {
 	int i;
 	float max=-1,sum=0;
 	dst->nrecords=nrecs;
+	if(src != NULL) {
 // get the maximum value of the density
-	for(i=0; i<arraysize; i++) if(src[i] > max) max = src[i];
+		for(i=0; i<arraysize; i++) if(src[i] > max) max = src[i];
 // scale the density to 0-255 and save in uchar array
-	for(i=0; i<arraysize; i++) {
-		dst->density[i] = (unsigned char)(src[i] * MAXDENSITY / max);
-		sum += dst->density[i] * max / (float)MAXDENSITY;
+		for(i=0; i<arraysize; i++) {
+			dst->density[i] = (unsigned char)(src[i] * MAXDENSITY / max);
+			sum += dst->density[i] * max / (float)MAXDENSITY;
+		}
+		dst->max = (max < 0.0000001 ? -1 : max);
+		dst->sum = sum;
+	} else {
+		dst->max = -1;
+		dst->sum = 0;
+		for(i=0; i<arraysize; i++) dst->density[i] = 0;
 	}
-	dst->max = (max < 0.0000001 ? -1 : max);
-	dst->sum = sum;
-	
 	if(dst->max == -1) printf("[INFO] Discarded density with max %f and sum %f.\n", max, dst->sum);
 }

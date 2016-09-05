@@ -21,7 +21,6 @@ public class nativeFunctions {
 	static native String exportExtractedVariables(String dID);
 	static native long[] openDistanceMatrix(String dID,String aID);
 	static native String exportDistanceMatrix(long handle);
-	//static native String queryRelatedTaxa(long handle,int taxID,int nlevels,int maxperlevel);
 	/**
 	 * Loads neighbors of target taxa
 	 * @param handle	C pointer to distance structure (returned by {@link openDistanceMatrix})

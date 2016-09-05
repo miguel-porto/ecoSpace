@@ -1,6 +1,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <unistd.h>
 #include "tiff-4.0.6/libtiff/tiffio.h"
 
 #define MAXVARIABLES 		30

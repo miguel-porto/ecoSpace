@@ -14,6 +14,9 @@ public final class QueryServiceFactory {
 	public static QueryService newQueryService(String queryType,String query) throws IOException {
 		QueryService qserv;
 		if(queryType==null) queryType="i";
+		if(query.equalsIgnoreCase("all"))
+			return new InternalQueryService("all");
+			
 		try {
 			switch(queryType) {
 			case "i":		// comma-separated internal IDs (these IDs depend on the analysis)

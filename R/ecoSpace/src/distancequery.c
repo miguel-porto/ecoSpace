@@ -4,13 +4,13 @@
 #include <stdlib.h>
 #include <locale.h>
 #include <errno.h>
-#include <unistd.h>
 #include "econav.h"
-#define CLUSTERBUFSIZE	15
+#define CLUSTERBUFSIZE	25
 /*
-	This needs refactoring!!!
+	TODO: this needs error handling!!!
+	This needs refactoring!
 	I think there may be some memory leaks out there that may occur in particular (but very rare) situations
-	
+
 	Compiling:
 	gcc -fPIC -O3 -o libecoSpace.so -shared -I/usr/lib/jvm/java-7-openjdk-amd64/include -B tiff-4.0.3/libtiff/.libs extract-vars.c distancequery.c distances.c readtiffs.c kernel-dens.c build-kernel.c -lc -ltiff
 */
@@ -51,17 +51,17 @@ bool PUSHNODE(int tpos, int level, int abund, NODES *nodes, bool onlyexisting) {
 		numOutputNodes += 20;
 		if((tmppointer=realloc(nodes->nodes,sizeof(int)*numOutputNodes)))
 			nodes->nodes = tmppointer;
-		else error("Some error reallocating");
+		else {printf("Some error reallocating"); exit(1);}
 
 		if((tmppointer=realloc(nodes->abundance,sizeof(int)*numOutputNodes)))
 			nodes->abundance=tmppointer;
-		else error("Some error reallocating");
+		else {printf("Some error reallocating"); exit(1);}
 	
 		if((tmppointer=realloc(nodes->level,sizeof(int)*numOutputNodes)))
 			nodes->level=tmppointer;
-		else error("Some error reallocating");
+		else {printf("Some error reallocating"); exit(1);}
 	
-		printf("Increased buffer for nodes, %d %ld\n",nodes->nnodes,numOutputNodes);
+		printf("Increased buffer for nodes, %d %ld\n",nodes->nnodes,numOutputNodes);fflush(stdout);
 		
 		i = nodes->nnodes;
 	}
@@ -93,7 +93,6 @@ JNIEXPORT jlongArray JNICALL Java_pt_floraon_ecospace_nativeFunctions_openDistan
 	dist->dist=malloc(sizeof(char)*dist->ntaxa*dist->ntaxa);
 	dummy=fread(dist->dist,sizeof(char),dist->ntaxa*dist->ntaxa,distfile);
 
-
 	fclose(distfile);
 	(*env)->ReleaseStringUTFChars(env,dID,pdID);
 	(*env)->ReleaseStringUTFChars(env,aID,paID);
@@ -116,8 +115,6 @@ JNIEXPORT jlongArray JNICALL Java_pt_floraon_ecospace_nativeFunctions_openDistan
 	fill[1]=sizeof(char)*dist->ntaxa*dist->ntaxa;
 	(*env)->SetLongArrayRegion(env, result, 0, 2, fill);
 	return result;
-
-//	return((jlong)dist);
 }
 
 JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_exportDistanceMatrix(JNIEnv *env, jclass obj, jlong ptr) {
@@ -205,8 +202,8 @@ void findRelatedTaxa(int basetax, int taxAbundance,int howmanyNeigh, DISTANCE *d
 				numOutputLinks+=1000;
 				if((tmppointer=realloc(outlinks->links,sizeof(LINK)*numOutputLinks)))
 					outlinks->links=tmppointer;
-				else error("Some error reallocating");
-				printf("Increased buffer for links\n");
+				else {printf("Some error reallocating"); exit(1);}
+				printf("Increased buffer for links\n");fflush(stdout);
 			}
 		
 			outlinks->links[outlinks->nlinks].srcid = basetax;
@@ -297,7 +294,7 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 	nodes.nnodes=0;
 	links.nlinks=0;
 	
-	printf("Memory OK, allocated space for %d nodes.\n",numOutputNodes);
+	printf("Memory OK, allocated space for %ld nodes.\n",numOutputNodes);
 	if(sampleBased)
 		printf("Computing link weights based on sample abundances.\nThe first abundances are: %d %d %d %d\n",tab[0],tab[1],tab[2],tab[3]);
 	else
@@ -367,7 +364,7 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 		do {
 			tmpfd=mkstemp(template2);
 			if(tmpfd!=-1) {
-				printf("%s ********************\n",template2);
+				printf("Writing tree %s ********************\n",template2);fflush(stdout);
 				treeout=fdopen(tmpfd,"wx");
 				if(!treeout) {
 					memset(template2,0,100);
@@ -375,7 +372,7 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 					count++;
 				}
 			} else {
-				printf("Error creating tempfile: %d\n",errno);
+				printf("Error creating tempfile: %d %s\n", errno, strerror(errno));
 				memset(template2,0,100);
 				strcpy(template2,"/tmp/treeXXXXXX");
 				count++;
@@ -383,14 +380,14 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 		} while(!treeout && count<15);
 
 		int maxid=0;
-		printf("EXPORTING\n# nodes: %d\n", nodes.nnodes);
+		printf("EXPORTING\n# nodes: %d\n", nodes.nnodes);fflush(stdout);
 		for(j=0;j<nodes.nnodes;j++) {
 			if(nodes.nodes[j]>maxid) maxid=nodes.nodes[j];
 		}
 		int *dic=malloc(sizeof(int)*(maxid+1));
 		
 		if(!dic || count==15) {
-			printf("Some ERROR on dic");	
+			printf("Some ERROR on dic");fflush(stdout);
 			fclose(treeout);
 			clusters_computed=false;
 			goto abort;
@@ -438,6 +435,7 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 //		int ret=system("/home/miguel/Infomap/Infomap '/home/miguel/workspace/ecoSpace/jni/tree.pajek' -ipajek /home/miguel/workspace/ecoSpace/jni --directed --tree");
 		char cmdbuf[100];
 		
+		printf("Running Infomap\n");fflush(stdout);
 		sprintf(cmdbuf,"../libs/Infomap '%s' -ipajek /tmp -N2 --directed --tree --markov-time 1",template2);	// this causes many nodes to have flow=0
 		//sprintf(cmdbuf,"./Infomap '%s' -ipajek /tmp -N10 --undirdir --tree --markov-time 1",template2);	// but this one also, why?
 		int trycount=0,ret;
@@ -456,23 +454,27 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 		unlink(template2);
 		strcat(template2,".tree");
 		FILE *clusters=fopen(template2,"r");
-		char *toto=fgets(out,outBufferSize,clusters),*tmpbuf;
+		char *toto,*tmpbuf;
+		// skip first two lines. TODO: this should check for comments and skip them
+		toto = fgets(out, outBufferSize, clusters);
+		toto = fgets(out, outBufferSize, clusters);
 		float tmpflow;
 		flow=malloc(sizeof(float)*nodes.nnodes);
-		int id,ind,len;
+		int id, ind, len, nread;
 		cluster=malloc(CLUSTERBUFSIZE*nodes.nnodes);	// reserve space for up to 10 hierarchical partitioning levels
 		tmpbuf=malloc(300);
 // read Infomap output
-		while(fscanf(clusters,"%s %f \"%d\" %d",tmpbuf,&tmpflow,&id,&ind)>0) {
-			len=strlen(tmpbuf);
+		while((nread = fscanf(clusters,"%s %f \"%d\" %d",tmpbuf,&tmpflow,&id,&ind)) > 0) {
+			if(nread != 4) continue;
+			len = strlen(tmpbuf);
 			for(i=0;i<len;i++) {
 				if(tmpbuf[i]==':') tmpbuf[i]=',';
 			}
 // discard the last cluster level
-			for(i=strlen(tmpbuf)-1;i>-1 && tmpbuf[i]!=',';i--) {}
-			tmpbuf[i]=0;
-			memcpy(&cluster[(ind-1)*CLUSTERBUFSIZE],tmpbuf,i+1);
-			flow[ind-1]=tmpflow;
+			for(i = strlen(tmpbuf)-1; i > -1 && tmpbuf[i] != ','; i--) {}
+			tmpbuf[i] = 0;
+			memcpy(&cluster[(ind-1)*CLUSTERBUFSIZE], tmpbuf, i+1);
+			flow[ind-1] = tmpflow;
 		}
 		fclose(clusters);
 		unlink(template2);
@@ -482,6 +484,7 @@ JNIEXPORT jstring JNICALL Java_pt_floraon_ecospace_nativeFunctions_getRelationsh
 
 	memset(out,0,outBufferSize);
 	strcpy(out,"{\"success\":true,\"nodes\":[");
+
 	if(nodes.nnodes==0) {
 		strcat(out,"],\"links\":[]}");
 	} else {
@@ -516,7 +519,7 @@ for(k=0;k<dist->ntaxa;k++) {
 				outBufferSize+=100000;
 				if((tmppointer=realloc(out,outBufferSize)))
 					out=tmppointer;
-				else error("Some error reallocating");
+				else {printf("Some error reallocating"); exit(1);}
 			}
 			strcat(out,buf);
 		}
@@ -526,7 +529,7 @@ for(k=0;k<dist->ntaxa;k++) {
 			strcat(out,"],\"links\":[]}");	// FIXME: should test buffer size here too
 		} else {
 			strcat(out,"],\"links\":[");	// FIXME: should test buffer size here too
-	
+			
 			for(j=0;j<links.nlinks;j++) {
 				sprintf(buf,"{\"sourceid\":%d,\"targetid\":%d,\"wei\":%f,\"bi\":%d},"
 					, dist->IDs[links.links[j].srcid]
@@ -538,7 +541,7 @@ for(k=0;k<dist->ntaxa;k++) {
 					outBufferSize+=100000;
 					if((tmppointer=realloc(out,outBufferSize)))
 						out=tmppointer;
-					else error("Some error reallocating");
+					else {printf("Some error reallocating"); exit(1);}
 				}
 				strcat(out,buf);
 			}

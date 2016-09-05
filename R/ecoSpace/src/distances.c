@@ -71,8 +71,9 @@ JNIEXPORT jlong JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeDistance
 	int counter=0;
 	for(i=0;i<ntaxa;i++) {
 //printf("Taxon %d, max density %f\n",i,densities[i].max);
-		if(densities[i].max<0 || IDs[i]==-1) {	// if this taxon has no kernel density (because of NAs)
-			for(j=i;j<ntaxa;j++) distances[i+j*ntaxa] = NA_DISTANCE;
+		if(densities[i].max < 0) {	// if this taxon has no kernel density (because of NAs)
+			printf("[INFO] Skipping taxon number %d with ID %d\n", i, IDs[i]);
+			for(j=i; j<ntaxa; j++) distances[i+j*ntaxa] = NA_DISTANCE;
 			#pragma omp atomic
 			counter += (ntaxa-i);
 			continue;
@@ -85,7 +86,7 @@ JNIEXPORT jlong JNICALL Java_pt_floraon_ecospace_nativeFunctions_computeDistance
 //			printf("Parallelizing with %d threads...\n",omp_get_num_threads());fflush(stdout);
 			#pragma omp for
 			for(j=i;j<ntaxa;j++) {
-				if(densities[j].max<0 || IDs[j]==-1) {	// if this taxon has no kernel density (because of NAs)
+				if(densities[j].max < 0) {	// if this taxon has no kernel density (because of NAs)
 					distances[i+j*ntaxa] = NA_DISTANCE;
 					#pragma omp atomic
 					counter++;

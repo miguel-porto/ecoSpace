@@ -272,7 +272,7 @@ asJSON<-function(from) {
 
 .asDist<-function(from) {
 	stopIfNotReady(from)
-	content=getBinaryURL(paste("localhost:7520/distdownload?did=",from@dataset,"&aid=",from@network,sep=""))
+	content = getBinaryURL(paste("localhost:7520/distdownload?did=",from@dataset,"&aid=",from@network,sep=""))
 	tmp = tempfile()
 	writeBin(content, con = tmp)
 	load(tmp)
